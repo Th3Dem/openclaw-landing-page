@@ -13,6 +13,8 @@ import json
 import logging
 import os
 import re
+import urllib.error
+import urllib.request
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -368,7 +370,48 @@ def detect_niche(
 def call_llm_if_available(
     system_prompt: str, history: List[Dict[str, str]], user_message: str
 ) -> Optional[str]:
-    """Invoke OpenAI / OpenRouter / Gemini API if API key is configured in environment."""
+    """Invoke Google Gemini, OpenAI, OpenRouter, or Groq API if configured in environment."""
+    load_env()
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+    if gemini_key:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={gemini_key}"
+            contents = []
+            for msg in history:
+                role = "user" if msg.get("role") == "user" else "model"
+                text = msg.get("content", "").strip()
+                if text:
+                    contents.append({"role": role, "parts": [{"text": text}]})
+            contents.append({"role": "user", "parts": [{"text": user_message}]})
+
+            payload = {
+                "system_instruction": {"parts": [{"text": system_prompt}]},
+                "contents": contents,
+                "generationConfig": {
+                    "temperature": 0.7,
+                    "maxOutputTokens": 600,
+                },
+            }
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                if "candidates" in data and len(data["candidates"]) > 0:
+                    candidate = data["candidates"][0]
+                    parts = candidate.get("content", {}).get("parts", [])
+                    if parts:
+                        answer = str(parts[0].get("text", "")).strip()
+                        logger.info(
+                            "Successfully generated response with Google Gemini Flash"
+                        )
+                        return answer
+        except Exception as gem_err:
+            logger.warning("Google Gemini API call failed: %s", gem_err)
+
     api_key = (
         os.environ.get("OPENROUTER_API_KEY")
         or os.environ.get("OPENAI_API_KEY")
@@ -402,8 +445,6 @@ def call_llm_if_available(
     }
 
     try:
-        import urllib.request
-
         req = urllib.request.Request(
             api_url,
             data=json.dumps(req_data).encode("utf-8"),
@@ -662,19 +703,68 @@ def generate_autonomous_response(
     system_prompt = SYSTEM_PROMPT_RU if is_ru else SYSTEM_PROMPT_EN
     llm_reply = call_llm_if_available(system_prompt, history, last_user_msg)
     if llm_reply:
-        completeness = min(100, turn_count * 22)
+        completeness = min(100, max(25, turn_count * 22))
         is_done = turn_count >= 5 or (
             "@" in all_text
             or "telegram" in all_text.lower()
             or "phone" in all_text.lower()
         )
+        brief_id = f"brief-{uuid.uuid4().hex[:8]}" if is_done else None
         brief_md = synthesize_brief_markdown(extracted, lang) if is_done else None
+
+        if is_done and brief_id:
+            record = {
+                "brief_id": brief_id,
+                "session_id": session_id,
+                "client_ip": client_ip,
+                "language": lang,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "extracted_dimensions": extracted,
+                "brief_markdown": brief_md,
+            }
+            save_brief_record(record)
+            try:
+                from email_service import send_lead_notification_email
+
+                email_lead_data = {
+                    "lead_id": brief_id,
+                    "name": extracted.get("contact", "AI Brief Client"),
+                    "contact": extracted.get("contact", "Specified in Brief"),
+                    "message": f"⚡ СИНТЕЗИРОВАННЫЙ ТЕХНИЧЕСКИЙ БРИФ ПРОЕКТА:\n\n{brief_md}",
+                    "client_ip": client_ip,
+                    "created_at": record["created_at"],
+                }
+                send_lead_notification_email(email_lead_data)
+            except Exception as email_err:
+                logger.warning("Could not dispatch brief email: %s", email_err)
+
+        niche_name, niche_info = detect_niche(all_text, is_ru)
+        chips = (
+            niche_info["chips"]
+            if niche_info
+            else (
+                [
+                    "Hero + Кейсы + Тарифы + Форма",
+                    "Интерактивный калькулятор стоимости",
+                    "Темный минимализм со свечением (Helias)",
+                    "Синхронизация с Telegram и CRM",
+                ]
+                if is_ru
+                else [
+                    "Hero + Proof + Pricing + Form",
+                    "Interactive Pricing Estimator",
+                    "Obsidian Dark Minimalist (Helias)",
+                    "Telegram Alerts & CRM Sync",
+                ]
+            )
+        )
         return {
             "session_id": session_id,
             "message": llm_reply,
-            "suggestions": [],
+            "suggestions": [] if is_done else chips,
             "completeness": 100 if is_done else completeness,
             "is_completed": is_done,
+            "brief_id": brief_id,
             "extracted_dimensions": extracted,
             "brief_summary": brief_md,
         }

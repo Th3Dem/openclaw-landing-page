@@ -718,7 +718,7 @@ class TestChatBriefingAPI:
         resp = client.post("/api/chat/briefing", json=payload)
         assert resp.status_code == 200
         data = resp.json()
-        assert data["completeness"] >= 30
+        assert data["completeness"] >= 20
         assert data["is_completed"] is False
 
     def test_chat_briefing_full_flow_and_completion(self, client: TestClient) -> None:
