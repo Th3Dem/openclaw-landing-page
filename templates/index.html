@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="{{ meta_desc }}">
     <title>{{ html_title }}</title>
+    <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono for Helias-inspired typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
@@ -49,10 +53,11 @@
 
     <!-- 1. Hero Section -->
     <section id="hero" class="section hero-section">
-        <div class="container">
+        <div class="hero-ambient-glow"></div>
+        <div class="container hero-container">
             <div class="hero-pill">
                 <span class="hero-pill-badge">{{ hero.pill_badge }}</span>
-                <span>{{ hero.pill_text }}</span>
+                <span class="hero-pill-text">{{ hero.pill_text }}</span>
             </div>
 
             <h1 class="hero-title">
@@ -70,33 +75,34 @@
                     <span class="btn-glow-ring"></span>
                     <span class="btn-icon">⚡</span>
                     <span class="btn-text">{{ hero.cta_button }}</span>
+                    <span class="btn-arrow">→</span>
                 </button>
             </div>
 
             <div class="hero-metrics-grid">
                 <div class="metric-card">
-                    <div class="metric-icon">⚡</div>
+                    <div class="metric-icon-wrap">⚡</div>
                     <div class="metric-value text-gradient-cyan">{{ hero.metrics.velocity }}</div>
                     <div class="metric-label">{{ hero.metrics.velocity_label }}</div>
                     <div class="metric-sub">{{ hero.metrics.velocity_sub }}</div>
                 </div>
 
                 <div class="metric-card">
-                    <div class="metric-icon">🛡️</div>
+                    <div class="metric-icon-wrap">🛡️</div>
                     <div class="metric-value text-gradient-emerald">{{ hero.metrics.qa_pass_rate }}</div>
                     <div class="metric-label">{{ hero.metrics.qa_pass_label }}</div>
                     <div class="metric-sub">{{ hero.metrics.qa_pass_sub }}</div>
                 </div>
 
                 <div class="metric-card">
-                    <div class="metric-icon">🌿</div>
+                    <div class="metric-icon-wrap">🌿</div>
                     <div class="metric-value text-gradient-purple">{{ hero.metrics.bad_commits }}</div>
                     <div class="metric-label">{{ hero.metrics.bad_commits_label }}</div>
                     <div class="metric-sub">{{ hero.metrics.bad_commits_sub }}</div>
                 </div>
 
                 <div class="metric-card">
-                    <div class="metric-icon">⏱️</div>
+                    <div class="metric-icon-wrap">⏱️</div>
                     <div class="metric-value text-gradient-cyan">{{ hero.metrics.uptime_readiness }}</div>
                     <div class="metric-label">{{ hero.metrics.uptime_label }}</div>
                     <div class="metric-sub">{{ hero.metrics.uptime_sub }}</div>
@@ -106,7 +112,7 @@
             <div class="telemetry-ribbon">
                 {% for item in hero.telemetry %}
                 <div class="telemetry-item">
-                    <span>{{ item.label }}</span>
+                    <span class="telemetry-label">{{ item.label }}</span>
                     <span class="telemetry-val">{{ item.val }}</span>
                 </div>
                 {% endfor %}
@@ -127,8 +133,10 @@
                 <div class="workflow-steps-grid">
                     {% for step in workflow.steps %}
                     <div class="flow-step-card">
-                        <span class="flow-step-num">{{ step.num }}</span>
-                        <div class="flow-bot-icon">{{ step.icon }}</div>
+                        <div class="flow-step-top">
+                            <span class="flow-step-num">{{ step.num }}</span>
+                            <div class="flow-bot-icon">{{ step.icon }}</div>
+                        </div>
                         <h3 class="flow-step-title">{{ step.title }}</h3>
                         <div class="flow-bot-id">{{ step.bot_id }}</div>
                         <p class="flow-step-desc">{{ step.desc | safe }}</p>
@@ -150,8 +158,11 @@
                         <div class="security-rules-grid">
                             {% for rule in workflow.security.rules %}
                             <div class="security-rule-item">
-                                <strong>{{ rule.label }}</strong>
-                                {{ rule.text }}
+                                <span class="security-bullet">▸</span>
+                                <div>
+                                    <strong>{{ rule.label }}</strong>
+                                    <span>{{ rule.text }}</span>
+                                </div>
                             </div>
                             {% endfor %}
                         </div>
@@ -173,7 +184,9 @@
             <div class="roster-grid">
                 <!-- Human Lead Profile -->
                 <div class="agent-card agent-card-human">
-                    <div class="agent-avatar">👤</div>
+                    <div class="agent-avatar-wrap">
+                        <div class="agent-avatar">👤</div>
+                    </div>
                     <div class="agent-meta">
                         <div class="agent-name-row">
                             <h3 class="agent-name">{{ roster.human_lead.name }}</h3>
@@ -190,7 +203,9 @@
                 {% for agent in roster.agents %}
                 <div class="agent-card">
                     <div class="agent-header">
-                        <div class="agent-avatar">{{ agent.icon }}</div>
+                        <div class="agent-avatar-wrap">
+                            <div class="agent-avatar">{{ agent.icon }}</div>
+                        </div>
                         <div class="agent-meta">
                             <div class="agent-name-row">
                                 <h3 class="agent-name">{{ agent.name }}</h3>
@@ -205,7 +220,10 @@
                     <div class="agent-skills-title">{{ roster.skills_title }}</div>
                     <ul class="agent-skills-list">
                         {% for skill in agent.skills %}
-                        <li class="agent-skill-item">{{ skill }}</li>
+                        <li class="agent-skill-item">
+                            <span class="skill-check">✓</span>
+                            <span>{{ skill }}</span>
+                        </li>
                         {% endfor %}
                     </ul>
                 </div>
@@ -258,10 +276,10 @@
                         {% for row in trust.rows %}
                         <tr>
                             <td class="matrix-dimension">
-                                <span>{{ row.icon }}</span> {{ row.dimension }}
+                                <span class="matrix-icon">{{ row.icon }}</span> {{ row.dimension }}
                             </td>
                             <td class="col-team">
-                                {{ row.team }}
+                                <span class="team-highlight">{{ row.team }}</span>
                             </td>
                             <td class="col-classic">
                                 {{ row.classic }}
