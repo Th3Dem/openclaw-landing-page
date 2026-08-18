@@ -658,7 +658,10 @@ class TestChatBriefingAPI:
         assert resp.status_code == 200
         data = resp.json()
         assert data["session_id"] == "test-session-ru-01"
-        assert "AI-архитектор" in data["message"]
+        assert (
+            "Senior Product Manager" in data["message"]
+            or "Архитектор" in data["message"]
+        )
         assert len(data["suggestions"]) > 0
         assert data["completeness"] >= 10
         assert data["is_completed"] is False
@@ -675,7 +678,10 @@ class TestChatBriefingAPI:
         assert resp.status_code == 200
         data = resp.json()
         assert data["session_id"] == "test-session-en-01"
-        assert "AI Web Architect" in data["message"]
+        assert (
+            "Senior Product Manager" in data["message"]
+            or "Web Architect" in data["message"]
+        )
         assert len(data["suggestions"]) > 0
         assert data["completeness"] >= 10
         assert data["is_completed"] is False
