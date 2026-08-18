@@ -41,18 +41,18 @@ load_env_file()
 def get_email_config() -> Dict[str, Any]:
     """Retrieve email and SMTP configuration from environment variables."""
     load_env_file()
-    host = os.getenv("SMTP_HOST", "smtp.mail.ru")
+    host = os.getenv("SMTP_HOST", "smtp.yandex.ru")
     port_str = os.getenv("SMTP_PORT", "465")
     try:
         port = int(port_str)
     except ValueError:
         port = 465
-    user = os.getenv("SMTP_USER", "asxdem@mail.ru")
+    user = os.getenv("SMTP_USER", "qxzib@yandex.ru")
     password = os.getenv("SMTP_PASSWORD", "")
     use_ssl_str = os.getenv("SMTP_USE_SSL", "true").strip().lower()
     use_ssl = use_ssl_str in ("true", "1", "yes") or port == 465
-    recipient = os.getenv("NOTIFICATION_RECIPIENT_EMAIL", "asxdem@mail.ru")
-    sender = os.getenv("NOTIFICATION_SENDER_EMAIL", user or "asxdem@mail.ru")
+    recipient = os.getenv("NOTIFICATION_RECIPIENT_EMAIL", "qxzib@yandex.ru")
+    sender = os.getenv("NOTIFICATION_SENDER_EMAIL", user or "qxzib@yandex.ru")
 
     return {
         "host": host,

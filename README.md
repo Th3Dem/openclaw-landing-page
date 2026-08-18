@@ -20,7 +20,7 @@ A high-converting, studio-grade landing page served by FastAPI, showcasing the O
 
 1. **Hero Section:** Human + AI engineering synergy (1 dev + 5 autonomous bots = studio-grade output, 10x velocity, 100% QA pass rate, 0 bad commits on main).
 2. **Hero CTA & Lead Modal:** Glowing emerald gradient button (`ПОДАТЬ ЗАЯВКУ` / `Apply for AI Dev Team`) triggering a cyber glassmorphism contact intake modal with real-time validation and asynchronous submission.
-3. **Email Notification Engine:** Immediate dispatch of incoming leads to `asxdem@mail.ru` with complete client details, formatted message, and timestamp.
+3. **Email Notification Engine:** Immediate dispatch of incoming leads to `qxzib@yandex.ru` with complete client details, formatted message, and timestamp.
 4. **Workflow (Automated Flow):** Visual, deterministic delivery pipeline (`User/Idea -> pm_bot -> ui_ux_bot -> dev_bot / py_bot -> qa_bot -> git_bot`) with the Least Privilege security model.
 5. **Team Roster:** Full profiles & skills for `pm_bot` (Paula), `ui_ux_bot` (Elena), `dev_bot` (Dev), `py_bot` (Alex), `qa_bot` (QA), `git_bot` (Git), and Lead Human Architect.
 6. **Capabilities:** High-load Go backends, FastAPI microservices, Telegram bots, Docker/SSH automation, automated CI/CD pipelines.
@@ -36,11 +36,11 @@ pip install -r requirements.txt
 ```
 
 ### 2. Configure Email Notifications (.env)
-Copy the example environment file and add your Mail.ru App Password:
+Copy the example environment file and add your Yandex App Password (Пароль приложения Яндекс):
 ```bash
 cp .env.example .env
 # Edit .env and set:
-# SMTP_PASSWORD=your_mailru_app_password
+# SMTP_PASSWORD=your_yandex_app_password
 ```
 
 ### 3. Run the Application

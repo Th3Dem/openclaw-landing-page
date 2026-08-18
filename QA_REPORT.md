@@ -16,7 +16,7 @@ Comprehensive QA, security, and standards audit completed for the asynchronous l
 
 ### Features Verified:
 1. **Background Async Execution:** `POST /api/leads` returns 200 OK immediately (<50ms) while queueing email dispatch in `BackgroundTasks`.
-2. **Mail.ru SMTP Integration:** Pre-configured for `smtp.mail.ru:465` (SSL) sending to `asxdem@mail.ru`.
+2. **Yandex Mail SMTP Integration:** Pre-configured for `smtp.yandex.ru:465` (SSL) sending to `qxzib@yandex.ru`.
 3. **Cyber Dark-Theme HTML Email:** Beautiful responsive HTML template with customer name, contact link (Telegram/Email), project description, client IP, and UTC timestamp.
 4. **Security & Injection Protection:** Strict header sanitization against CRLF injection, zero hardcoded credentials, `.env` excluded from version control in `.gitignore`.
 5. **Fault Tolerance:** If SMTP credentials are not set or network fails, lead is safely persisted to `leads.json` and error is logged without failing client request.

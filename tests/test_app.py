@@ -475,18 +475,18 @@ class TestEmailNotificationService:
         """Verify email configuration extraction and defaults."""
         from email_service import get_email_config
 
-        monkeypatch.setenv("SMTP_HOST", "smtp.mail.ru")
+        monkeypatch.setenv("SMTP_HOST", "smtp.yandex.ru")
         monkeypatch.setenv("SMTP_PORT", "465")
-        monkeypatch.setenv("SMTP_USER", "asxdem@mail.ru")
+        monkeypatch.setenv("SMTP_USER", "qxzib@yandex.ru")
         monkeypatch.setenv("SMTP_PASSWORD", "secretpass123")
-        monkeypatch.setenv("NOTIFICATION_RECIPIENT_EMAIL", "asxdem@mail.ru")
+        monkeypatch.setenv("NOTIFICATION_RECIPIENT_EMAIL", "qxzib@yandex.ru")
 
         config = get_email_config()
-        assert config["host"] == "smtp.mail.ru"
+        assert config["host"] == "smtp.yandex.ru"
         assert config["port"] == 465
-        assert config["user"] == "asxdem@mail.ru"
+        assert config["user"] == "qxzib@yandex.ru"
         assert config["password"] == "secretpass123"
-        assert config["recipient"] == "asxdem@mail.ru"
+        assert config["recipient"] == "qxzib@yandex.ru"
         assert config["enabled"] is True
 
     def test_build_email_content_telegram_and_email_links(self) -> None:
@@ -535,12 +535,12 @@ class TestEmailNotificationService:
         """Verify successful email dispatch via SMTP_SSL (port 465)."""
         from email_service import send_lead_notification_email
 
-        monkeypatch.setenv("SMTP_HOST", "smtp.mail.ru")
+        monkeypatch.setenv("SMTP_HOST", "smtp.yandex.ru")
         monkeypatch.setenv("SMTP_PORT", "465")
         monkeypatch.setenv("SMTP_USE_SSL", "true")
-        monkeypatch.setenv("SMTP_USER", "asxdem@mail.ru")
+        monkeypatch.setenv("SMTP_USER", "qxzib@yandex.ru")
         monkeypatch.setenv("SMTP_PASSWORD", "mock_app_password")
-        monkeypatch.setenv("NOTIFICATION_RECIPIENT_EMAIL", "asxdem@mail.ru")
+        monkeypatch.setenv("NOTIFICATION_RECIPIENT_EMAIL", "qxzib@yandex.ru")
 
         lead = {
             "lead_id": "lead-ssl-01",
@@ -557,9 +557,9 @@ class TestEmailNotificationService:
             result = send_lead_notification_email(lead)
 
             assert result is True
-            mock_smtp_ssl.assert_called_once_with("smtp.mail.ru", 465, timeout=15)
+            mock_smtp_ssl.assert_called_once_with("smtp.yandex.ru", 465, timeout=15)
             mock_server.login.assert_called_once_with(
-                "asxdem@mail.ru", "mock_app_password"
+                "qxzib@yandex.ru", "mock_app_password"
             )
             mock_server.send_message.assert_called_once()
 
@@ -567,10 +567,10 @@ class TestEmailNotificationService:
         """Verify successful email dispatch via standard SMTP with STARTTLS (port 587)."""
         from email_service import send_lead_notification_email
 
-        monkeypatch.setenv("SMTP_HOST", "smtp.mail.ru")
+        monkeypatch.setenv("SMTP_HOST", "smtp.yandex.ru")
         monkeypatch.setenv("SMTP_PORT", "587")
         monkeypatch.setenv("SMTP_USE_SSL", "false")
-        monkeypatch.setenv("SMTP_USER", "asxdem@mail.ru")
+        monkeypatch.setenv("SMTP_USER", "qxzib@yandex.ru")
         monkeypatch.setenv("SMTP_PASSWORD", "mock_app_password")
 
         lead = {
@@ -585,10 +585,10 @@ class TestEmailNotificationService:
             result = send_lead_notification_email(lead)
 
             assert result is True
-            mock_smtp.assert_called_once_with("smtp.mail.ru", 587, timeout=15)
+            mock_smtp.assert_called_once_with("smtp.yandex.ru", 587, timeout=15)
             mock_server.starttls.assert_called_once()
             mock_server.login.assert_called_once_with(
-                "asxdem@mail.ru", "mock_app_password"
+                "qxzib@yandex.ru", "mock_app_password"
             )
             mock_server.send_message.assert_called_once()
 
