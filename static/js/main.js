@@ -521,6 +521,23 @@ function initChatModal() {
         });
     }
 
+    const downloadBriefBtn = document.getElementById("chatDownloadBriefBtn");
+    if (downloadBriefBtn) {
+        downloadBriefBtn.addEventListener("click", () => {
+            const contentToDownload = currentBriefSummary || (briefContent ? briefContent.textContent : "");
+            if (!contentToDownload) return;
+            const blob = new Blob([contentToDownload], { type: "text/markdown;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `openclaw-tz-specification-${sessionId}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+    }
+
     if (restartBtn) {
         restartBtn.addEventListener("click", () => {
             sessionId = "session-" + Math.random().toString(36).substring(2, 10);

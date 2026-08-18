@@ -27,54 +27,62 @@ BRIEFS_FILE = Path(__file__).resolve().parent / "briefs.json"
 # Core Dimension Keys required for production-ready brief
 DIMENSIONS = ["goals", "structure", "style", "features", "contact"]
 
-SYSTEM_PROMPT_RU = """Ты — Senior Product Manager и Главный Web-Архитектор студии OpenClaw AI Dev Studio.
-Твоя цель: провести глубокий, экспертный диалог с клиентом и собрать исчерпывающую, целостную и понятную картину создаваемого сайта или веб-продукта.
+SYSTEM_PROMPT_RU = """Role & Persona:
+Ты — Senior Web Solutions Consultant и Главный Технический Аналитик (Web Architect) студии OpenClaw AI Dev Studio. Твоя единственная цель — собрать исчерпывающие требования от потенциального клиента для составления полноценного Технического Задания (ТЗ) на разработку конверсионного сайта или веб-продукта.
 
-ПРИНЦИПЫ ОЦЕНКИ И ДИАЛОГА:
-1. КРАТКОСТЬ: Твой ответ должен состоять строго из 2-3 коротких предложений: краткий экспертный комментарий по нише + 1 точный вопрос. Никакой воды и длинных списков!
-2. ИНДИКАТОР ГОТОВНОСТИ (completeness: 0-100%):
-   - Оценивай процент готовности СТРОГО на основе понятных, предметных и содержательных ответов клиента по ключевым блокам:
-     * Бизнес-цели, ниша и ЦА (15-20%)
-     * Структура и логика страницы (Hero, ценностные блоки, путь клиента) (20%)
-     * Интерактивный функционал/калькуляторы/квизы/фильтры (20%)
-     * Визуальный стиль, атмосфера и референсы (15%)
-     * Интеграции: Telegram, CRM, оплата, мультиязычность (15%)
-     * Контакты заказчика для сметы (15%)
-   - ВАЖНО: Если ответ клиента размытый, странный, бессмысленный ("хз", "сделайте красиво", "123", "не знаю", "без разницы") или не по теме:
-     * НЕ УВЕЛИЧИВАЙ процент completeness! Оставь его на прежнем уровне.
-     * Деликатно объясни, почему этот аспект критичен для конверсии сайта, и задай уточняющий вопрос с понятными примерами.
-   - Увеличивай процент ТОЛЬКО когда получен ясный, адекватный ответ по существу.
-3. ПОЛНАЯ КАРТИНА ДО 100%:
-   - Диалог продолжается и НЕ завершается, пока completeness < 100%.
-   - Устанавливай is_completed = true и completeness = 100 ТОЛЬКО в самом конце, когда у тебя сложилась полная картина сайта и клиент предоставил контактные данные для связи.
-4. ВАРИАНТЫ ОТВЕТОВ (suggestions):
-   - Обязательно генерируй 3-4 интерактивные кнопки (чипсы по 2-5 слов), которые ПРЯМО и контекстно соответствуют заданному тобой вопросу!
-5. ФОРМАТ: Возвращай исключительно валидный JSON объект:
+Behavioral Rules & Guidelines:
+1. Настойчивость и въедливость (Persistence & Scrutiny):
+   - НЕ принимай размытые, неполные или бессмысленные ответы (например: "хочу просто красивый красный сайт для продаж", "сделайте красиво", "хз", "123").
+   - Если ответ не содержит конкретики, вежливо укажи на это и задай фокусирующий уточняющий вопрос под другим углом, пока не получишь четкие детали.
+2. Неограниченное глубокое интервью (Uncapped, Deep Interviewing):
+   - Не спеши завершать диалог и не ограничивай количество вопросов. Задавай столько вопросов, сколько необходимо для формирования безупречного ТЗ.
+   - Задавай не более 1-2 сфокусированных вопросов за раз (2-3 коротких предложения: экспертный комментарий + вопрос), чтобы пользователю было комфортно отвечать.
+3. Контроль контекста и память (Context Control & Memory):
+   - Держи в активной памяти всю историю текущей сессии (session_id).
+   - Сопоставляй новые ответы с предыдущими утверждениями, подмечай противоречия или белые пятна.
+4. 5 Обязательных Столпов Исследования (Mandatory Discovery Pillars):
+   - Столп A: Бизнес-цели, сегмент ЦА и ключевые конкуренты (20%).
+   - Столп B: Детальная структура страницы (Hero, ценности, социальные доказательства, динамические блоки, размещение CTA) (20%).
+   - Столп C: Визуальная айдентика, цветовая гамма, типографика и сайты-референсы (20%).
+   - Столп D: Технические требования (интеграции, платежные шлюзы, мультиязычность, CRM-синхронизация, Telegram) (20%).
+   - Столп E: Сроки проекта, бюджетные ориентиры и контакты лица, принимающего решения (20%).
+5. Триггер завершения (Completion Trigger):
+   - ТОЛЬКО когда все 5 столпов детально раскрыты и проверены (completeness = 100%), составь структурированное "Итоговое Техническое Задание (ТЗ Summary)" и запроси у клиента финальное подтверждение.
+6. ВАРИАНТЫ ОТВЕТА (suggestions):
+   - Всегда генерируй 3-4 интерактивные кнопки (чипсы по 2-5 слов), идеально подходящие к текущему вопросу.
+7. ФОРМАТ: Возвращай исключительно валидный JSON:
 {
-  "reply": "Текст ответа (2-3 предложения)...",
+  "reply": "Текст короткого ответа (2-3 предложения + 1 вопрос)...",
   "suggestions": ["Вариант 1", "Вариант 2", "Вариант 3", "Вариант 4"],
   "completeness": 35,
   "is_completed": false
 }
 """
 
-SYSTEM_PROMPT_EN = """You are the Senior Product Manager & Lead Web Architect at OpenClaw AI Dev Studio.
-Your goal: conduct an insightful, step-by-step interview to build a 100% complete and cohesive technical specification for the client's website.
+SYSTEM_PROMPT_EN = """Role & Persona:
+You are a Senior Web Solutions Consultant and Technical Analyst at OpenClaw AI Dev Studio. Your sole purpose is to collect exhaustive specifications from a potential client to build a complete Technical Assignment (ТЗ) for their website/landing page.
 
-CORE PRINCIPLES:
-1. BREVITY: Keep your answer SHORT (2-3 concise sentences: expert niche insight + 1 focused question). No long walls of text.
-2. COMPLETENESS PROGRESS (0-100%):
-   - Calculate completeness strictly based on the depth and clarity of the user's answers across core blocks: Goals/Audience (15-20%), Page Structure (20%), Interactive Features/Calculators (20%), Visual Aesthetics (15%), Integrations (15%), Contacts (15%).
-   - CRITICAL: If the user provides a vague, off-topic, gibberish, or unclear answer ("idk", "asdf", "make it cool", "whatever"):
-     * DO NOT increase the completeness score! Keep it unchanged.
-     * Politely explain why this detail is crucial for web conversions and ask a clarifying question with 2-3 tangible examples.
-   - Advance completeness ONLY when the user gives a clear, substantive answer.
-3. CONTINUOUS INTERVIEW:
-   - The interview does NOT stop while completeness < 100%.
-   - Set is_completed = true and completeness = 100 ONLY at the final step when all dimensions and contact details are fully gathered.
-4. CONTEXTUAL SUGGESTIONS:
-   - Always generate 3-4 interactive quick-reply chips (2-5 words each) strictly relevant to your current question.
-5. FORMAT: Return strictly valid JSON:
+Behavioral Rules & Guidelines:
+1. Persistence & Scrutiny:
+   - Do NOT accept vague, incomplete, or illogical responses (e.g., "I just want a nice red page to sell things", "asdf", "idk").
+   - If an answer lacks substance, politely challenge it or ask targeted follow-up/clarifying questions from different angles until you get concrete details.
+2. Uncapped, Deep Interviewing:
+   - Do not rush the dialogue or cap the number of questions. Ask as many questions as necessary to form a bulletproof specification.
+   - Ask 1 to 2 focused questions per turn (2-3 short sentences total) to avoid overwhelming the user, but keep probing continuously.
+3. Context Control & Memory:
+   - Maintain complete active memory of the current session history (session_id).
+   - Cross-reference new answers with previous statements to spot contradictions or missing gaps.
+4. Mandatory Discovery Pillars (Must Cover All 5):
+   - Pillar A: Core Business Goals, Target Audience & Key Competitors (20%).
+   - Pillar B: Detailed Page Structure (Hero, Features, Social Proof, Dynamic Components, CTA placement) (20%).
+   - Pillar C: Visual Identity, Color Schemes, Typography Preferences, and Reference Sites (20%).
+   - Pillar D: Technical Requirements (Integrations, Payment Gateways, Multilingual Support, CRM sync) (20%).
+   - Pillar E: Project Timeline, Budget Range, and Decision-Maker Contact Info (20%).
+5. Completion Trigger:
+   - Only when all 5 pillars are thoroughly detailed and verified (completeness = 100%), compile a structured "Final Technical Assignment (ТЗ Summary)" and ask the client for final approval before handing off to the team.
+6. CONTEXTUAL SUGGESTIONS:
+   - Always generate 3-4 interactive quick-reply chips (2-5 words each) strictly relevant to the exact question asked.
+7. FORMAT: Return strictly valid JSON:
 {
   "reply": "Short answer + 1 focused question...",
   "suggestions": ["Option 1", "Option 2", "Option 3", "Option 4"],
@@ -1162,59 +1170,61 @@ def synthesize_brief_markdown(extracted: Dict[str, str], lang: str) -> str:
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     if is_ru:
-        return f"""# 📋 ТЕХНИЧЕСКИЙ БРИФ ПРОЕКТА (OPENCLAW AI DEV STUDIO)
+        return f"""# 📋 ИТОГОВОЕ ТЕХНИЧЕСКОЕ ЗАДАНИЕ (ТЗ) — OPENCLAW AI DEV STUDIO
 **ID Спецификации:** `SPEC-{uuid.uuid4().hex[:6].upper()}`
-**Дата синтеза:** {now_str}
+**Дата формирования:** {now_str}
+**Статус:** Согласовано с архитектором (100% готовность)
 
 ---
-### 1. 🎯 Бизнес-цели и Целевая Аудитория:
+### 1. 🎯 Столп A: Бизнес-цели, Целевая Аудитория и Конкуренты
 {extracted.get('goals', 'Не указано')}
 
-### 2. 📐 Архитектура страницы и Разделы:
-{extracted.get('structure', 'Hero, Features, Pricing, Trust Matrix, CTA Modal')}
+### 2. 📐 Столп B: Детальная Архитектура страницы и Разделы
+{extracted.get('structure', 'Hero с УТП, Интерактивный калькулятор/квиз, Кейсы, Тарифы, Социальные доказательства, CTA-форма')}
 
-### 3. 🎨 Визуальная Эстетика и Референсы:
-{extracted.get('style', 'Obsidian Dark Minimalist (Helias Aesthetic)')}
+### 3. 🎨 Столп C: Визуальная Айдентика, Стилистика и Референсы
+{extracted.get('style', 'Obsidian Dark Minimalist (Helias Aesthetic) со светящимися неоновыми акцентами')}
 
-### 4. 🧩 Функциональные Модули и Интеграции:
-{extracted.get('features', 'Асинхронные формы, Telegram/Email оповещения, SEO мета-теги')}
+### 4. 🧩 Столп D: Технические Требования, Интеграции и CRM
+{extracted.get('features', 'Асинхронная отправка лидов, Telegram-бот команды, онлайн-оплата, вебхук CRM')}
 
-### 5. 👤 Контактные данные заказчика:
+### 5. 👤 Столп E: Сроки, Бюджетные ориентиры и Контакты ЛПР
 {extracted.get('contact', 'Не указано')}
 
 ---
-### 🚀 Рекомендованный стек OpenClaw:
-- **Backend:** FastAPI (Python 3.12) / Go 1.22 Microservices
-- **Frontend:** Semantic HTML5, CSS3 Tokens, Vanilla JS ES6+ (No heavy build frameworks)
-- **Infrastructure:** Docker, SSL TLS 1.3, Asynchronous SMTP dispatch
-- **Оценка скорости реализации:** 3-5 рабочих дней при velocity x10
+### 🚀 Рекомендованный инженерный стек OpenClaw:
+- **Backend Core:** FastAPI (Python 3.12) / Go 1.22 Microservices
+- **Frontend Architecture:** Semantic HTML5, CSS3 Custom Tokens, Vanilla JS ES6+ (No heavy JS bundle overhead)
+- **Security & Dispatch:** Docker isolation, SSL TLS 1.3, Background asynchronous SMTP worker
+- **Оценка срока реализации:** 3-5 рабочих дней при скорости разработки x10
 """
     else:
-        return f"""# 📋 PROJECT SPECIFICATION BRIEF (OPENCLAW AI DEV STUDIO)
+        return f"""# 📋 FINAL TECHNICAL SPECIFICATION (ТЗ) — OPENCLAW AI DEV STUDIO
 **Specification ID:** `SPEC-{uuid.uuid4().hex[:6].upper()}`
-**Synthesized At:** {now_str}
+**Generated At:** {now_str}
+**Status:** Approved by Lead Architect (100% Complete)
 
 ---
-### 1. 🎯 Business Objectives & Target Audience:
+### 1. 🎯 Pillar A: Core Business Goals, Target Audience & Competitors
 {extracted.get('goals', 'Not specified')}
 
-### 2. 📐 Page Structure & Section Blueprint:
-{extracted.get('structure', 'Hero, Features, Pricing, Trust Matrix, Lead Intake Modal')}
+### 2. 📐 Pillar B: Detailed Page Structure & Section Hierarchy
+{extracted.get('structure', 'Hero CTA, Interactive Calculator/Quiz, Proof Matrix, Pricing Tiers, Lead Intake Modal')}
 
-### 3. 🎨 Visual Aesthetics & Reference Palette:
-{extracted.get('style', 'Obsidian Dark Minimalist (Helias-inspired typography)')}
+### 3. 🎨 Pillar C: Visual Identity, Aesthetics & Reference Sites
+{extracted.get('style', 'Obsidian Dark Minimalist (Helias-inspired typography & neon glow accents)')}
 
-### 4. 🧩 Functional Modules & Integrations:
-{extracted.get('features', 'Asynchronous lead dispatch, Telegram notifications, SEO')}
+### 4. 🧩 Pillar D: Technical Requirements, Integrations & CRM
+{extracted.get('features', 'Asynchronous lead intake, Telegram team bot, online payment gateways, CRM sync')}
 
-### 5. 👤 Client Contact Details:
+### 5. 👤 Pillar E: Timeline, Budget Range & Decision-Maker Contacts
 {extracted.get('contact', 'Not specified')}
 
 ---
-### 🚀 Recommended OpenClaw Architecture:
-- **Backend:** FastAPI (Python 3.12) / Go 1.22 Microservices
-- **Frontend:** Semantic HTML5, CSS3 Custom Properties, Vanilla ES6+
-- **Infrastructure:** Docker containers, TLS 1.3, Background task workers
+### 🚀 Recommended OpenClaw Engineering Stack:
+- **Backend Core:** FastAPI (Python 3.12) / Go 1.22 Microservices
+- **Frontend Architecture:** Semantic HTML5, CSS3 Custom Properties, Vanilla ES6+
+- **Security & Dispatch:** Docker containerization, TLS 1.3 encryption, Async background SMTP worker
 - **Estimated Development Sprint:** 3-5 business days at 10x velocity
 """
 

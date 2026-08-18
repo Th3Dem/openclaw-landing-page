@@ -759,7 +759,10 @@ class TestChatBriefingAPI:
             assert "brief_id" in data
             assert data["brief_id"].startswith("brief-")
             assert "brief_summary" in data
-            assert "ТЕХНИЧЕСКИЙ БРИФ" in data["brief_summary"]
+            assert (
+                "ТЕХНИЧЕСКОЕ ЗАДАНИЕ" in data["brief_summary"]
+                or "ТЕХНИЧЕСКИЙ БРИФ" in data["brief_summary"]
+            )
             assert "Fintech Mobile SaaS" in data["brief_summary"]
             assert mock_email.called
 
@@ -780,7 +783,10 @@ class TestChatBriefingAPI:
         data = resp.json()
         assert data["session_id"] == "test-summary-session"
         assert "brief_markdown" in data
-        assert "PROJECT SPECIFICATION BRIEF" in data["brief_markdown"]
+        assert (
+            "TECHNICAL SPECIFICATION" in data["brief_markdown"]
+            or "PROJECT SPECIFICATION BRIEF" in data["brief_markdown"]
+        )
         assert data["completeness"] >= 40
 
     def test_build_brief_markdown_ru_and_en(self) -> None:
@@ -796,12 +802,14 @@ class TestChatBriefingAPI:
         }
 
         md_ru = synthesize_brief_markdown(answers, "ru")
-        assert "ТЕХНИЧЕСКИЙ БРИФ ПРОЕКТА" in md_ru
+        assert "ТЕХНИЧЕСКОЕ ЗАДАНИЕ" in md_ru or "ТЕХНИЧЕСКИЙ БРИФ" in md_ru
         assert "E-Commerce Store" in md_ru
         assert "FastAPI" in md_ru
 
         md_en = synthesize_brief_markdown(answers, "en")
-        assert "PROJECT SPECIFICATION BRIEF" in md_en
+        assert (
+            "TECHNICAL SPECIFICATION" in md_en or "PROJECT SPECIFICATION BRIEF" in md_en
+        )
         assert "E-Commerce Store" in md_en
         assert "FastAPI" in md_en
 
@@ -811,3 +819,19 @@ class TestChatBriefingAPI:
         assert "<script>" not in clean
         assert "&lt;script&gt;" in clean
         assert "Hello World" in clean
+
+    def test_evasive_and_absurd_inputs_do_not_complete(
+        self, client: TestClient
+    ) -> None:
+        """Verify absurd/evasive inputs ('123', 'сделай сам') are rejected and do not complete."""
+        payload: Dict[str, Any] = {
+            "session_id": "test-evasive-session",
+            "message": "сделай сам",
+            "history": [{"role": "assistant", "content": "Tell me about your product"}],
+            "lang": "ru",
+        }
+        resp = client.post("/api/chat/briefing", json=payload)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["is_completed"] is False
+        assert data["completeness"] <= 20

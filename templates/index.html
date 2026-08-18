@@ -397,9 +397,9 @@
             <div class="modal-header modal-chat-header">
                 <div class="modal-header-top">
                     <div class="modal-badge modal-badge-cyan">{{ chat.badge }}</div>
-                    <div class="chat-progress-badge" title="Полнота и качество брифа">
+                    <div class="chat-progress-badge" title="Полнота и качество ТЗ">
                         <span class="progress-dot"></span>
-                        <span class="progress-label">{{ "Готовность ТЗ:" if lang == "ru" else "Brief Readiness:" }}</span>
+                        <span class="progress-label">{{ "Заполнение ТЗ:" if lang == "ru" else "ТЗ Specification:" }}</span>
                         <span id="chatProgressText">10%</span>
                     </div>
                 </div>
@@ -419,23 +419,23 @@
             <div class="chat-brief-card" id="chatBriefCard" style="display: none;">
                 <div class="chat-brief-card-header">
                     <span class="chat-brief-icon">📋</span>
-                    <span class="chat-brief-title">Спецификация проекта (Синтез)</span>
+                    <span class="chat-brief-title">{{ "Финальное Техническое Задание (ТЗ)" if lang == "ru" else "Final Technical Specification (ТЗ)" }}</span>
                 </div>
                 <pre class="chat-brief-content" id="chatBriefContent"></pre>
             </div>
 
-            <!-- Animated Typing Indicator -->
+            <!-- Typing Indicator -->
             <div class="chat-typing-indicator" id="chatTyping" style="display: none;">
                 <div class="typing-avatar">🤖</div>
                 <div class="typing-bubble">
-                    <span class="typing-dot"></span>
-                    <span class="typing-dot"></span>
-                    <span class="typing-dot"></span>
-                    <span class="typing-text">{{ chat.typing_text }}</span>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
                 </div>
+                <span class="typing-text" id="chatTypingText">{{ "Консультант анализирует ответ..." if lang == "ru" else "Consultant is analyzing requirements..." }}</span>
             </div>
 
-            <!-- Quick Reply Suggestion Chips -->
+            <!-- Suggestion Chips Container -->
             <div class="chat-suggestions-container" id="chatSuggestions">
                 <!-- Suggestion chips will be injected dynamically -->
             </div>
@@ -452,13 +452,16 @@
 
             <!-- Brief Summary & Actions (Displayed upon completion) -->
             <div class="chat-completed-actions" id="chatCompletedActions" style="display: none;">
-                <div class="chat-completed-badge">{{ chat.completed_badge }}</div>
+                <div class="chat-completed-badge">{{ "✅ ТЗ сформировано и зафиксировано" if lang == "ru" else "✅ Specification Finalized" }}</div>
                 <div class="chat-action-btns">
                     <button type="button" class="btn btn-secondary btn-sm" id="chatViewBriefBtn">
-                        📋 Посмотреть бриф
+                        📋 {{ "Посмотреть ТЗ" if lang == "ru" else "View ТЗ" }}
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm btn-download-tz" id="chatDownloadBriefBtn">
+                        💾 {{ "Скачать ТЗ (.md)" if lang == "ru" else "Download ТЗ (.md)" }}
                     </button>
                     <button type="button" class="btn btn-secondary btn-sm" id="chatRestartBtn">
-                        {{ chat.restart_btn }}
+                        🔄 {{ chat.restart_btn }}
                     </button>
                 </div>
             </div>
@@ -466,6 +469,6 @@
     </div>
 
     <!-- Interactive Script -->
-    <script src="/static/js/main.js?v=2.3.0-deep-consultant"></script>
+    <script src="/static/js/main.js?v=2.4.0-tz-consultant"></script>
 </body>
 </html>
