@@ -397,8 +397,9 @@
             <div class="modal-header modal-chat-header">
                 <div class="modal-header-top">
                     <div class="modal-badge modal-badge-cyan">{{ chat.badge }}</div>
-                    <div class="chat-progress-badge">
+                    <div class="chat-progress-badge" title="Полнота и качество брифа">
                         <span class="progress-dot"></span>
+                        <span class="progress-label">{{ "Готовность ТЗ:" if lang == "ru" else "Brief Readiness:" }}</span>
                         <span id="chatProgressText">10%</span>
                     </div>
                 </div>

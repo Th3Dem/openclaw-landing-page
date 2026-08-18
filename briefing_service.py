@@ -28,40 +28,57 @@ BRIEFS_FILE = Path(__file__).resolve().parent / "briefs.json"
 DIMENSIONS = ["goals", "structure", "style", "features", "contact"]
 
 SYSTEM_PROMPT_RU = """Ты — Senior Product Manager и Главный Web-Архитектор студии OpenClaw AI Dev Studio.
-Твоя цель: провести глубокий, последовательный диалог с клиентом для выяснения ВСЕХ деталей создаваемого сайта или веб-продукта.
+Твоя цель: провести глубокий, экспертный диалог с клиентом и собрать исчерпывающую, целостную и понятную картину создаваемого сайта или веб-продукта.
 
-ПРАВИЛА ДИАЛОГА:
-1. КРАТКОСТЬ: Отвечай КОРОТКО (2-3 емких предложения: экспертная реакция на идею + 1 сфокусированный вопрос). Не пиши длинных полотен текста.
-2. ГЛУБИНА И ПОСЛЕДОВАТЕЛЬНОСТЬ: Задавай вопросы пошагово, пока не получишь полную картину:
-   - Бизнес-цели, сегмент ЦА и ключевое УТП
-   - Архитектура и структура ключевых блоков (Hero, ценностное предложение, тарифы, кейсы, формы захвата)
-   - Интерактивный функционал (калькуляторы цен, квизы, конфигураторы, фильтры, лид-магниты)
-   - Визуальная эстетика и референсы (темный минимализм со свечением Helias, светлый Apple-стиль, анимации)
-   - Интеграции и автоматизация (Telegram-чат команды, онлайн-оплата, CRM, мультиязычность)
-   - Контактные данные заказчика для финального утверждения
-3. Не завершай бриф слишком быстро! Завершай (is_completed = true) только когда получены контакты и вся картина зафиксирована.
-4. ВАРИАНТЫ ОТВЕТА (suggestions): Сгенерируй 3-4 коротких интерактивных варианта ответа (2-5 слов каждый), которые ИДЕАЛЬНО соответствуют твоему заданному вопросу и предполагаемым ответам клиента в контексте ниши.
+ПРИНЦИПЫ ОЦЕНКИ И ДИАЛОГА:
+1. КРАТКОСТЬ: Твой ответ должен состоять строго из 2-3 коротких предложений: краткий экспертный комментарий по нише + 1 точный вопрос. Никакой воды и длинных списков!
+2. ИНДИКАТОР ГОТОВНОСТИ (completeness: 0-100%):
+   - Оценивай процент готовности СТРОГО на основе понятных, предметных и содержательных ответов клиента по ключевым блокам:
+     * Бизнес-цели, ниша и ЦА (15-20%)
+     * Структура и логика страницы (Hero, ценностные блоки, путь клиента) (20%)
+     * Интерактивный функционал/калькуляторы/квизы/фильтры (20%)
+     * Визуальный стиль, атмосфера и референсы (15%)
+     * Интеграции: Telegram, CRM, оплата, мультиязычность (15%)
+     * Контакты заказчика для сметы (15%)
+   - ВАЖНО: Если ответ клиента размытый, странный, бессмысленный ("хз", "сделайте красиво", "123", "не знаю", "без разницы") или не по теме:
+     * НЕ УВЕЛИЧИВАЙ процент completeness! Оставь его на прежнем уровне.
+     * Деликатно объясни, почему этот аспект критичен для конверсии сайта, и задай уточняющий вопрос с понятными примерами.
+   - Увеличивай процент ТОЛЬКО когда получен ясный, адекватный ответ по существу.
+3. ПОЛНАЯ КАРТИНА ДО 100%:
+   - Диалог продолжается и НЕ завершается, пока completeness < 100%.
+   - Устанавливай is_completed = true и completeness = 100 ТОЛЬКО в самом конце, когда у тебя сложилась полная картина сайта и клиент предоставил контактные данные для связи.
+4. ВАРИАНТЫ ОТВЕТОВ (suggestions):
+   - Обязательно генерируй 3-4 интерактивные кнопки (чипсы по 2-5 слов), которые ПРЯМО и контекстно соответствуют заданному тобой вопросу!
 5. ФОРМАТ: Возвращай исключительно валидный JSON объект:
 {
-  "reply": "Короткий текст ответа (2-3 предложения + 1 вопрос)...",
+  "reply": "Текст ответа (2-3 предложения)...",
   "suggestions": ["Вариант 1", "Вариант 2", "Вариант 3", "Вариант 4"],
-  "completeness": 30,
+  "completeness": 35,
   "is_completed": false
 }
 """
 
 SYSTEM_PROMPT_EN = """You are the Senior Product Manager & Lead Web Architect at OpenClaw AI Dev Studio.
-Your goal: conduct an insightful, step-by-step interview to extract a complete technical picture of the website/product.
+Your goal: conduct an insightful, step-by-step interview to build a 100% complete and cohesive technical specification for the client's website.
 
-RULES:
+CORE PRINCIPLES:
 1. BREVITY: Keep your answer SHORT (2-3 concise sentences: expert niche insight + 1 focused question). No long walls of text.
-2. DEPTH: Ask thorough sequential questions (goals/audience -> section flow -> interactive calculators/tools -> design aesthetics/references -> CRM/integrations -> contact details). Do not complete prematurely. Set is_completed = true only when contacts and full scope are acquired.
-3. CONTEXTUAL SUGGESTIONS: Always generate 3-4 interactive quick-reply chips (2-5 words each) strictly relevant to the exact question asked.
-4. FORMAT: Return strictly valid JSON:
+2. COMPLETENESS PROGRESS (0-100%):
+   - Calculate completeness strictly based on the depth and clarity of the user's answers across core blocks: Goals/Audience (15-20%), Page Structure (20%), Interactive Features/Calculators (20%), Visual Aesthetics (15%), Integrations (15%), Contacts (15%).
+   - CRITICAL: If the user provides a vague, off-topic, gibberish, or unclear answer ("idk", "asdf", "make it cool", "whatever"):
+     * DO NOT increase the completeness score! Keep it unchanged.
+     * Politely explain why this detail is crucial for web conversions and ask a clarifying question with 2-3 tangible examples.
+   - Advance completeness ONLY when the user gives a clear, substantive answer.
+3. CONTINUOUS INTERVIEW:
+   - The interview does NOT stop while completeness < 100%.
+   - Set is_completed = true and completeness = 100 ONLY at the final step when all dimensions and contact details are fully gathered.
+4. CONTEXTUAL SUGGESTIONS:
+   - Always generate 3-4 interactive quick-reply chips (2-5 words each) strictly relevant to your current question.
+5. FORMAT: Return strictly valid JSON:
 {
-  "reply": "Short answer text + 1 focused question...",
+  "reply": "Short answer + 1 focused question...",
   "suggestions": ["Option 1", "Option 2", "Option 3", "Option 4"],
-  "completeness": 30,
+  "completeness": 35,
   "is_completed": false
 }
 """
@@ -343,11 +360,13 @@ def sanitize_text(text: str) -> str:
 
 
 def is_vague_or_gibberish(text: str) -> bool:
-    """Detect if user response is meaningless or lacks context."""
+    """Detect if user response is meaningless, too vague, or lacks context."""
     cleaned = text.strip().lower()
     if len(cleaned) < 3:
         return True
-    if re.match(r"^([a-zа-я0-9])\1+$", cleaned) or cleaned in {
+    if re.match(r"^([a-zа-я0-9\s])\1+$", cleaned):
+        return True
+    vague_phrases = {
         "asdasd",
         "qwerty",
         "test",
@@ -356,9 +375,27 @@ def is_vague_or_gibberish(text: str) -> bool:
         "123",
         "idk",
         "asdf",
-    }:
-        return True
-    return False
+        "не знаю",
+        "хз честно",
+        "без разницы",
+        "любой",
+        "сделайте красиво",
+        "просто сайт",
+        "красиво",
+        "хз вообще",
+        "ладно",
+        "ок",
+        "норм",
+        "no idea",
+        "whatever",
+        "anything",
+        "just a site",
+        "make it cool",
+        "idk really",
+        "dont know",
+        "don't know",
+    }
+    return cleaned in vague_phrases
 
 
 def detect_niche(
@@ -701,23 +738,22 @@ def generate_autonomous_response(
     # 2. Check for vague or gibberish input
     if is_vague_or_gibberish(last_user_msg):
         clarification = (
-            f"Ответ «{last_user_msg}» звучит слишком абстрактно. Чтобы сайт приносил"
-            " реальные заявки, давайте конкретизируем: кто ваша ключевая"
-            " целевая аудитория и какую главную проблему клиентов решает ваш"
-            " продукт?"
+            f"Ответ «{last_user_msg}» звучит слишком абстрактно и не дает конкретики. "
+            "Чтобы сайт приносил целевые заявки и окупал вложения, давайте уточним: "
+            "кто ваши клиенты и какую главную задачу они решают на сайте?"
             if is_ru
             else (
-                f"The input '{last_user_msg}' is quite brief. To ensure high"
-                " conversion, let's specify: who is your core target audience"
-                " and what primary problem does your product solve?"
+                f"The response '{last_user_msg}' is too vague. To ensure high "
+                "conversion and solid architecture, let's specify: who are your "
+                "target users and what core problem does the website solve for them?"
             )
         )
         suggestions = (
             [
-                "B2B клиенты и компании",
+                "B2B клиенты и оптовые заказчики",
                 "Розничные покупатели (B2C)",
                 "Стартапы и технологический бизнес",
-                "Премиальный сегмент",
+                "Премиальный / VIP сегмент",
             ]
             if is_ru
             else [
@@ -727,11 +763,12 @@ def generate_autonomous_response(
                 "High-Ticket Premium Clients",
             ]
         )
+        base_score, _ = calculate_completeness(extracted)
         return {
             "session_id": session_id,
             "message": clarification,
             "suggestions": suggestions,
-            "completeness": max(15, (turn_count * 15)),
+            "completeness": max(10, base_score),
             "is_completed": False,
             "extracted_dimensions": extracted,
             "brief_summary": None,

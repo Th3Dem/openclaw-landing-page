@@ -699,7 +699,7 @@ class TestChatBriefingAPI:
         resp = client.post("/api/chat/briefing", json=payload)
         assert resp.status_code == 200
         data = resp.json()
-        assert "абстрактен" in data["message"] or "конкретизируем" in data["message"]
+        assert "абстрактн" in data["message"] or "уточним" in data["message"]
         assert len(data["suggestions"]) > 0
         assert data["is_completed"] is False
 
