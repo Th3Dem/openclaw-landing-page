@@ -6,7 +6,6 @@ leads.json
 *_HANDOVER.md
 QA_REPORT*.md
 TASK-*.md
-WORKLOG.md
 
 # Environment & Local Secrets
 .env
