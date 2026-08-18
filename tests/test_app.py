@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
-from unittest.mock import patch
+import smtplib
+from typing import Any
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -453,3 +456,188 @@ class TestLeadIntakeAPI:
         finally:
             if original_content is not None:
                 test_file.write_text(original_content, encoding="utf-8")
+
+
+class TestEmailNotificationService:
+    """Unit and integration tests for email notification dispatch and SMTP resilience."""
+
+    def test_sanitize_header(self) -> None:
+        """Verify CRLF injection removal in email headers."""
+        from email_service import sanitize_header
+
+        unsafe_subject = "Test Subject\r\nBcc: hacker@evil.com\nAnother line"
+        sanitized = sanitize_header(unsafe_subject)
+        assert "\r" not in sanitized
+        assert "\n" not in sanitized
+        assert "Bcc: hacker@evil.com" in sanitized
+
+    def test_get_email_config_defaults_and_env(self, monkeypatch: Any) -> None:
+        """Verify email configuration extraction and defaults."""
+        from email_service import get_email_config
+
+        monkeypatch.setenv("SMTP_HOST", "smtp.mail.ru")
+        monkeypatch.setenv("SMTP_PORT", "465")
+        monkeypatch.setenv("SMTP_USER", "asxdem@mail.ru")
+        monkeypatch.setenv("SMTP_PASSWORD", "secretpass123")
+        monkeypatch.setenv("NOTIFICATION_RECIPIENT_EMAIL", "asxdem@mail.ru")
+
+        config = get_email_config()
+        assert config["host"] == "smtp.mail.ru"
+        assert config["port"] == 465
+        assert config["user"] == "asxdem@mail.ru"
+        assert config["password"] == "secretpass123"
+        assert config["recipient"] == "asxdem@mail.ru"
+        assert config["enabled"] is True
+
+    def test_build_email_content_telegram_and_email_links(self) -> None:
+        """Verify email formatting with telegram handles and email addresses."""
+        from email_service import build_email_content
+
+        lead_tg = {
+            "lead_id": "lead-12345678",
+            "name": "Alex Dev",
+            "contact": "@alex_dev",
+            "message": "Build high load backend\nSecond line details",
+            "client_ip": "192.168.1.100",
+            "created_at": "2026-08-18T19:30:00Z",
+        }
+        text, html_body = build_email_content(lead_tg)
+        assert "lead-12345678" in text
+        assert "Alex Dev" in text
+        assert "Build high load backend" in text
+        assert "https://t.me/alex_dev" in html_body
+        assert "<br>" in html_body
+
+        lead_mail = {
+            "lead_id": "lead-87654321",
+            "name": "Sarah",
+            "contact": "sarah@startup.io",
+            "message": None,
+            "client_ip": "10.0.0.1",
+            "created_at": "2026-08-18T19:35:00Z",
+        }
+        text2, html_body2 = build_email_content(lead_mail)
+        assert "mailto:sarah@startup.io" in html_body2
+        assert "No additional notes provided." in html_body2
+
+    def test_send_lead_notification_disabled_when_no_password(
+        self, monkeypatch: Any
+    ) -> None:
+        """Verify send_lead_notification_email returns False when SMTP_PASSWORD is not configured."""
+        from email_service import send_lead_notification_email
+
+        monkeypatch.setenv("SMTP_PASSWORD", "")
+        lead = {"lead_id": "lead-001", "name": "Test", "contact": "@test"}
+        result = send_lead_notification_email(lead)
+        assert result is False
+
+    def test_send_lead_notification_success_ssl(self, monkeypatch: Any) -> None:
+        """Verify successful email dispatch via SMTP_SSL (port 465)."""
+        from email_service import send_lead_notification_email
+
+        monkeypatch.setenv("SMTP_HOST", "smtp.mail.ru")
+        monkeypatch.setenv("SMTP_PORT", "465")
+        monkeypatch.setenv("SMTP_USE_SSL", "true")
+        monkeypatch.setenv("SMTP_USER", "asxdem@mail.ru")
+        monkeypatch.setenv("SMTP_PASSWORD", "mock_app_password")
+        monkeypatch.setenv("NOTIFICATION_RECIPIENT_EMAIL", "asxdem@mail.ru")
+
+        lead = {
+            "lead_id": "lead-ssl-01",
+            "name": "Enterprise Client",
+            "contact": "ceo@enterprise.com",
+            "message": "Full-stack project",
+            "client_ip": "1.2.3.4",
+            "created_at": "2026-08-18T19:40:00Z",
+        }
+
+        mock_server = MagicMock()
+        with patch("smtplib.SMTP_SSL", return_value=mock_server) as mock_smtp_ssl:
+            mock_server.__enter__.return_value = mock_server
+            result = send_lead_notification_email(lead)
+
+            assert result is True
+            mock_smtp_ssl.assert_called_once_with("smtp.mail.ru", 465, timeout=15)
+            mock_server.login.assert_called_once_with(
+                "asxdem@mail.ru", "mock_app_password"
+            )
+            mock_server.send_message.assert_called_once()
+
+    def test_send_lead_notification_success_tls(self, monkeypatch: Any) -> None:
+        """Verify successful email dispatch via standard SMTP with STARTTLS (port 587)."""
+        from email_service import send_lead_notification_email
+
+        monkeypatch.setenv("SMTP_HOST", "smtp.mail.ru")
+        monkeypatch.setenv("SMTP_PORT", "587")
+        monkeypatch.setenv("SMTP_USE_SSL", "false")
+        monkeypatch.setenv("SMTP_USER", "asxdem@mail.ru")
+        monkeypatch.setenv("SMTP_PASSWORD", "mock_app_password")
+
+        lead = {
+            "lead_id": "lead-tls-01",
+            "name": "TLS Client",
+            "contact": "@tls_client",
+        }
+
+        mock_server = MagicMock()
+        with patch("smtplib.SMTP", return_value=mock_server) as mock_smtp:
+            mock_server.__enter__.return_value = mock_server
+            result = send_lead_notification_email(lead)
+
+            assert result is True
+            mock_smtp.assert_called_once_with("smtp.mail.ru", 587, timeout=15)
+            mock_server.starttls.assert_called_once()
+            mock_server.login.assert_called_once_with(
+                "asxdem@mail.ru", "mock_app_password"
+            )
+            mock_server.send_message.assert_called_once()
+
+    def test_send_lead_notification_smtp_exception_handling(
+        self, monkeypatch: Any
+    ) -> None:
+        """Verify send_lead_notification_email handles SMTP exceptions gracefully."""
+        from email_service import send_lead_notification_email
+
+        monkeypatch.setenv("SMTP_PASSWORD", "secret")
+        lead = {"lead_id": "lead-err-01", "name": "Err Client", "contact": "@error"}
+
+        with patch(
+            "smtplib.SMTP_SSL", side_effect=smtplib.SMTPException("Connection rejected")
+        ):
+            result = send_lead_notification_email(lead)
+            assert result is False
+
+    def test_load_env_file_parser(self, tmp_path: Path) -> None:
+        """Verify load_env_file parser properly extracts key-value pairs."""
+        from email_service import load_env_file
+
+        env_file = tmp_path / ".env.test"
+        env_file.write_text(
+            "CUSTOM_TEST_VAR='12345'\n# Comment line\nINVALID_LINE\nKEY2=val2\n",
+            encoding="utf-8",
+        )
+
+        load_env_file(str(env_file))
+        assert os.environ.get("CUSTOM_TEST_VAR") == "12345"
+        assert os.environ.get("KEY2") == "val2"
+
+    def test_submit_lead_triggers_background_email_dispatch(
+        self, client: TestClient
+    ) -> None:
+        """Verify POST /api/leads adds send_lead_notification_email to background tasks."""
+        with patch("app.send_lead_notification_email") as mock_email_dispatch:
+            payload = {
+                "name": "Full Flow Lead",
+                "contact": "@fullflow",
+                "message": "Need autonomous development",
+            }
+            resp = client.post("/api/leads", json=payload)
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["status"] == "success"
+            assert data["lead_id"].startswith("lead-")
+
+            mock_email_dispatch.assert_called_once()
+            call_arg = mock_email_dispatch.call_args[0][0]
+            assert call_arg["name"] == "Full Flow Lead"
+            assert call_arg["contact"] == "@fullflow"

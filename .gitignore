@@ -1,3 +1,4 @@
+# Python artifacts
 __pycache__/
 *.py[cod]
 *.class
@@ -5,3 +6,6 @@ __pycache__/
 .coverage
 .mypy_cache/
 htmlcov/
+
+# Local environment secrets
+.env

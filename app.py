@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 import uuid
 
-from fastapi import FastAPI, Request
+from fastapi import BackgroundTasks, FastAPI, Request
+from email_service import send_lead_notification_email
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -1100,8 +1101,10 @@ async def get_index_page(request: Request, lang: Optional[str] = None) -> HTMLRe
 
 
 @app.post("/api/leads", response_class=JSONResponse)
-async def submit_lead_application(request: Request, lead: LeadRequest) -> JSONResponse:
-    """Intake customer lead application, validate payload, and store lead record."""
+async def submit_lead_application(
+    request: Request, lead: LeadRequest, background_tasks: BackgroundTasks
+) -> JSONResponse:
+    """Intake customer lead application, validate payload, store lead record, and dispatch email notification."""
     client_ip = request.client.host if request.client else "unknown"
     logger.info(
         "Lead submission received from %s: name='%s', contact='%s'",
@@ -1110,6 +1113,7 @@ async def submit_lead_application(request: Request, lead: LeadRequest) -> JSONRe
         lead.contact,
     )
     record = save_lead(lead, client_ip=client_ip)
+    background_tasks.add_task(send_lead_notification_email, record)
     return JSONResponse(
         status_code=200,
         content={
