@@ -28,35 +28,42 @@ BRIEFS_FILE = Path(__file__).resolve().parent / "briefs.json"
 DIMENSIONS = ["goals", "structure", "style", "features", "contact"]
 
 SYSTEM_PROMPT_RU = """Ты — Senior Product Manager и Главный Web-Архитектор студии OpenClaw AI Dev Studio.
-Твоя цель: провести экспертный, живой и глубокий диалог с потенциальным клиентом, чтобы собрать кристально четкие требования для создания высококонверсионного сайта или веб-продукта.
+Твоя цель: провести глубокий, последовательный диалог с клиентом для выяснения ВСЕХ деталей создаваемого сайта или веб-продукта.
 
-ПРИНЦИПЫ ДИАЛОГА:
-1. Не будь роботом-опросником. Общайся как опытный digital-консультант, предлагай идеи и подсвечивай лучшие практики.
-2. Активно уточняй размытые или абстрактные ответы (например, "хочу сайт как гугл для хлеба" или "сделайте красиво"). Предложи 2-3 конкретных сценария или архитектурных решения.
-3. Отслеживай 5 ключевых критериев:
-   - Бизнес-цели и целевая аудитория
-   - Структура страницы (блоки, логический путь клиента, размещение CTA)
-   - Визуальная эстетика, цветовая гамма и сайты-референсы
-   - Функционал и интеграции (формы, калькуляторы, платежи, CRM, Telegram)
-   - Контактные данные заказчика для отправки сметы и брифа
-4. Задавай не более 1-2 сфокусированных вопросов за раз, чтобы клиенту было комфортно отвечать.
-5. Предлагай релевантные быстрые варианты ответа (чипсы).
+ПРАВИЛА ДИАЛОГА:
+1. КРАТКОСТЬ: Отвечай КОРОТКО (2-3 емких предложения: экспертная реакция на идею + 1 сфокусированный вопрос). Не пиши длинных полотен текста.
+2. ГЛУБИНА И ПОСЛЕДОВАТЕЛЬНОСТЬ: Задавай вопросы пошагово, пока не получишь полную картину:
+   - Бизнес-цели, сегмент ЦА и ключевое УТП
+   - Архитектура и структура ключевых блоков (Hero, ценностное предложение, тарифы, кейсы, формы захвата)
+   - Интерактивный функционал (калькуляторы цен, квизы, конфигураторы, фильтры, лид-магниты)
+   - Визуальная эстетика и референсы (темный минимализм со свечением Helias, светлый Apple-стиль, анимации)
+   - Интеграции и автоматизация (Telegram-чат команды, онлайн-оплата, CRM, мультиязычность)
+   - Контактные данные заказчика для финального утверждения
+3. Не завершай бриф слишком быстро! Завершай (is_completed = true) только когда получены контакты и вся картина зафиксирована.
+4. ВАРИАНТЫ ОТВЕТА (suggestions): Сгенерируй 3-4 коротких интерактивных варианта ответа (2-5 слов каждый), которые ИДЕАЛЬНО соответствуют твоему заданному вопросу и предполагаемым ответам клиента в контексте ниши.
+5. ФОРМАТ: Возвращай исключительно валидный JSON объект:
+{
+  "reply": "Короткий текст ответа (2-3 предложения + 1 вопрос)...",
+  "suggestions": ["Вариант 1", "Вариант 2", "Вариант 3", "Вариант 4"],
+  "completeness": 30,
+  "is_completed": false
+}
 """
 
-SYSTEM_PROMPT_EN = """You are the Senior Product Manager and Lead Web Architect at OpenClaw AI Dev Studio.
-Your goal: conduct an insightful, adaptive, organic conversation with prospective clients to gather a production-grade specification for their website or digital product.
+SYSTEM_PROMPT_EN = """You are the Senior Product Manager & Lead Web Architect at OpenClaw AI Dev Studio.
+Your goal: conduct an insightful, step-by-step interview to extract a complete technical picture of the website/product.
 
-CONVERSATION PRINCIPLES:
-1. Never sound like a rigid questionnaire. Act as an expert product strategist, suggesting high-converting architectural ideas.
-2. Actively drill down into vague or overly broad inputs (e.g. "I want a site like Google for bread"). Provide 2-3 tangible structure options.
-3. Systematically extract 5 core dimensions:
-   - Business Goals & Target Audience
-   - Page Structure & Section Hierarchy (Hero, Proof, Features, CTA flow)
-   - Visual Aesthetics, Color Tone & Reference Websites
-   - Key Features & Integrations (Forms, CRM, Telegram bot, Checkout)
-   - Stakeholder Contact Info for brief delivery
-4. Ask only 1-2 focused questions per turn.
-5. Provide relevant quick-reply suggestions.
+RULES:
+1. BREVITY: Keep your answer SHORT (2-3 concise sentences: expert niche insight + 1 focused question). No long walls of text.
+2. DEPTH: Ask thorough sequential questions (goals/audience -> section flow -> interactive calculators/tools -> design aesthetics/references -> CRM/integrations -> contact details). Do not complete prematurely. Set is_completed = true only when contacts and full scope are acquired.
+3. CONTEXTUAL SUGGESTIONS: Always generate 3-4 interactive quick-reply chips (2-5 words each) strictly relevant to the exact question asked.
+4. FORMAT: Return strictly valid JSON:
+{
+  "reply": "Short answer text + 1 focused question...",
+  "suggestions": ["Option 1", "Option 2", "Option 3", "Option 4"],
+  "completeness": 30,
+  "is_completed": false
+}
 """
 
 ENV_FILE = Path(__file__).resolve().parent / ".env"
@@ -367,9 +374,36 @@ def detect_niche(
     return None, None
 
 
+def parse_llm_json_response(raw_text: str) -> Optional[Dict[str, Any]]:
+    """Parse JSON or extract JSON block from LLM output."""
+    clean = raw_text.strip()
+    if "```json" in clean:
+        clean = clean.split("```json", 1)[1].split("```", 1)[0].strip()
+    elif "```" in clean:
+        clean = clean.split("```", 1)[1].split("```", 1)[0].strip()
+
+    try:
+        data = json.loads(clean)
+        if isinstance(data, dict) and "reply" in data:
+            return data
+    except Exception:
+        pass
+
+    m = re.search(r"\{[\s\S]*\}", clean)
+    if m:
+        try:
+            data = json.loads(m.group(0))
+            if isinstance(data, dict) and "reply" in data:
+                return data
+        except Exception:
+            pass
+
+    return None
+
+
 def call_llm_if_available(
     system_prompt: str, history: List[Dict[str, str]], user_message: str
-) -> Optional[str]:
+) -> Optional[Dict[str, Any]]:
     """Invoke Google Gemini, OpenAI, OpenRouter, or Groq API if configured in environment."""
     load_env()
     gemini_key = os.environ.get("GEMINI_API_KEY")
@@ -388,8 +422,9 @@ def call_llm_if_available(
                 "system_instruction": {"parts": [{"text": system_prompt}]},
                 "contents": contents,
                 "generationConfig": {
+                    "responseMimeType": "application/json",
                     "temperature": 0.7,
-                    "maxOutputTokens": 600,
+                    "maxOutputTokens": 800,
                 },
             }
             req = urllib.request.Request(
@@ -405,10 +440,13 @@ def call_llm_if_available(
                     parts = candidate.get("content", {}).get("parts", [])
                     if parts:
                         answer = str(parts[0].get("text", "")).strip()
-                        logger.info(
-                            "Successfully generated response with Google Gemini Flash"
-                        )
-                        return answer
+                        parsed = parse_llm_json_response(answer)
+                        if parsed:
+                            logger.info(
+                                "Successfully generated structured response with Gemini JSON mode"
+                            )
+                            return parsed
+                        return {"reply": answer, "suggestions": []}
         except Exception as gem_err:
             logger.warning("Google Gemini API call failed: %s", gem_err)
 
@@ -441,7 +479,7 @@ def call_llm_if_available(
         "model": model,
         "messages": messages,
         "temperature": 0.7,
-        "max_tokens": 450,
+        "max_tokens": 600,
     }
 
     try:
@@ -459,10 +497,10 @@ def call_llm_if_available(
             data = json.loads(resp.read().decode("utf-8"))
             if "choices" in data and len(data["choices"]) > 0:
                 answer = data["choices"][0]["message"]["content"].strip()
-                logger.info(
-                    "Successfully generated response using LLM provider (%s)", model
-                )
-                return str(answer)
+                parsed = parse_llm_json_response(answer)
+                if parsed:
+                    return parsed
+                return {"reply": answer, "suggestions": []}
     except Exception as err:
         logger.warning("LLM API call failed, using advanced semantic engine: %s", err)
 
@@ -701,18 +739,30 @@ def generate_autonomous_response(
 
     # 3. Try LLM Call first if key exists
     system_prompt = SYSTEM_PROMPT_RU if is_ru else SYSTEM_PROMPT_EN
-    llm_reply = call_llm_if_available(system_prompt, history, last_user_msg)
-    if llm_reply:
-        completeness = min(100, max(25, turn_count * 22))
-        is_done = turn_count >= 5 or (
-            "@" in all_text
-            or "telegram" in all_text.lower()
-            or "phone" in all_text.lower()
+    llm_dict = call_llm_if_available(system_prompt, history, last_user_msg)
+    if llm_dict:
+        reply_text = llm_dict.get("reply", "")
+        llm_suggestions = llm_dict.get("suggestions", [])
+        llm_completeness = int(
+            llm_dict.get("completeness", min(100, max(20, turn_count * 15)))
         )
-        brief_id = f"brief-{uuid.uuid4().hex[:8]}" if is_done else None
-        brief_md = synthesize_brief_markdown(extracted, lang) if is_done else None
+        llm_is_completed = bool(llm_dict.get("is_completed", False)) or (
+            turn_count >= 5
+            and (
+                "@" in all_text
+                or "telegram" in all_text.lower()
+                or "phone" in all_text.lower()
+                or ".com" in all_text.lower()
+                or ".ru" in all_text.lower()
+            )
+        )
 
-        if is_done and brief_id:
+        brief_id = f"brief-{uuid.uuid4().hex[:8]}" if llm_is_completed else None
+        brief_md = (
+            synthesize_brief_markdown(extracted, lang) if llm_is_completed else None
+        )
+
+        if llm_is_completed and brief_id:
             record = {
                 "brief_id": brief_id,
                 "session_id": session_id,
@@ -738,32 +788,34 @@ def generate_autonomous_response(
             except Exception as email_err:
                 logger.warning("Could not dispatch brief email: %s", email_err)
 
-        niche_name, niche_info = detect_niche(all_text, is_ru)
-        chips = (
-            niche_info["chips"]
-            if niche_info
-            else (
-                [
-                    "Hero + Кейсы + Тарифы + Форма",
-                    "Интерактивный калькулятор стоимости",
-                    "Темный минимализм со свечением (Helias)",
-                    "Синхронизация с Telegram и CRM",
-                ]
-                if is_ru
-                else [
-                    "Hero + Proof + Pricing + Form",
-                    "Interactive Pricing Estimator",
-                    "Obsidian Dark Minimalist (Helias)",
-                    "Telegram Alerts & CRM Sync",
-                ]
+        if not llm_suggestions and not llm_is_completed:
+            niche_name, niche_info = detect_niche(all_text, is_ru)
+            llm_suggestions = (
+                niche_info["chips"]
+                if niche_info
+                else (
+                    [
+                        "Hero + Кейсы + Тарифы + Форма",
+                        "Интерактивный калькулятор стоимости",
+                        "Темный минимализм со свечением (Helias)",
+                        "Синхронизация с Telegram и CRM",
+                    ]
+                    if is_ru
+                    else [
+                        "Hero + Proof + Pricing + Form",
+                        "Interactive Pricing Estimator",
+                        "Obsidian Dark Minimalist (Helias)",
+                        "Telegram Alerts & CRM Sync",
+                    ]
+                )
             )
-        )
+
         return {
             "session_id": session_id,
-            "message": llm_reply,
-            "suggestions": [] if is_done else chips,
-            "completeness": 100 if is_done else completeness,
-            "is_completed": is_done,
+            "message": reply_text,
+            "suggestions": [] if llm_is_completed else llm_suggestions,
+            "completeness": 100 if llm_is_completed else llm_completeness,
+            "is_completed": llm_is_completed,
             "brief_id": brief_id,
             "extracted_dimensions": extracted,
             "brief_summary": brief_md,
