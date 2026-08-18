@@ -1,4 +1,17 @@
-# Python artifacts
+# Sensitive lead data & runtime storage
+leads.json
+*.json
+
+# Internal Agent Handover & QA reports
+*_HANDOVER.md
+QA_REPORT*.md
+TASK-*.md
+WORKLOG.md
+
+# Environment & Local Secrets
+.env
+
+# Python artifacts & caches
 __pycache__/
 *.py[cod]
 *.class
@@ -6,6 +19,3 @@ __pycache__/
 .coverage
 .mypy_cache/
 htmlcov/
-
-# Local environment secrets
-.env
