@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="{{ lang_code }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{{ meta_desc }}">
+    <title>{{ html_title }}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+    <!-- Sticky Navigation Bar -->
+    <header class="navbar">
+        <div class="container nav-content">
+            <a href="#hero" class="nav-brand">
+                <span class="nav-logo-icon">⚡</span>
+                <span class="nav-title">{{ nav.title_prefix }} <span class="text-gradient-cyan">{{ nav.title_suffix }}</span></span>
+                <span class="nav-badge">v{{ version }}</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="#hero" class="nav-link">{{ nav.overview }}</a></li>
+                <li><a href="#workflow" class="nav-link">{{ nav.workflow }}</a></li>
+                <li><a href="#roster" class="nav-link">{{ nav.roster }}</a></li>
+                <li><a href="#capabilities" class="nav-link">{{ nav.capabilities }}</a></li>
+                <li><a href="#trust" class="nav-link">{{ nav.trust }}</a></li>
+            </ul>
+
+            <div class="nav-actions">
+                <!-- Language Switcher Pill -->
+                <div class="lang-switcher" id="langSwitcher" role="navigation" aria-label="Language Selector">
+                    <a href="/?lang=en" class="lang-btn {% if lang == 'en' %}active{% endif %}" data-lang="en" title="English" aria-label="Switch to English">
+                        <span class="lang-flag">🇬🇧</span>
+                        <span class="lang-code">EN</span>
+                    </a>
+                    <span class="lang-divider">/</span>
+                    <a href="/?lang=ru" class="lang-btn {% if lang == 'ru' %}active{% endif %}" data-lang="ru" title="Русский" aria-label="Переключить на русский">
+                        <span class="lang-flag">🇷🇺</span>
+                        <span class="lang-code">RU</span>
+                    </a>
+                </div>
+
+                <div class="nav-status">
+                    <span class="pulse-dot"></span>
+                    <span>{{ nav.status }}</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 1. Hero Section -->
+    <section id="hero" class="section hero-section">
+        <div class="container">
+            <div class="hero-pill">
+                <span class="hero-pill-badge">{{ hero.pill_badge }}</span>
+                <span>{{ hero.pill_text }}</span>
+            </div>
+
+            <h1 class="hero-title">
+                {{ hero.title_line1 }}<br>
+                <span class="text-gradient-cyan">{{ hero.title_line2 }}</span>
+            </h1>
+
+            <p class="hero-description">
+                {{ hero.description | safe }}
+            </p>
+
+            <!-- Prominent Green Hero CTA Button -->
+            <div class="hero-cta-wrap">
+                <button type="button" id="openLeadModalBtn" class="btn btn-primary-green btn-pulse" aria-haspopup="dialog" aria-controls="leadModal">
+                    <span class="btn-glow-ring"></span>
+                    <span class="btn-icon">⚡</span>
+                    <span class="btn-text">{{ hero.cta_button }}</span>
+                </button>
+            </div>
+
+            <div class="hero-metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-icon">⚡</div>
+                    <div class="metric-value text-gradient-cyan">{{ hero.metrics.velocity }}</div>
+                    <div class="metric-label">{{ hero.metrics.velocity_label }}</div>
+                    <div class="metric-sub">{{ hero.metrics.velocity_sub }}</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-icon">🛡️</div>
+                    <div class="metric-value text-gradient-emerald">{{ hero.metrics.qa_pass_rate }}</div>
+                    <div class="metric-label">{{ hero.metrics.qa_pass_label }}</div>
+                    <div class="metric-sub">{{ hero.metrics.qa_pass_sub }}</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-icon">🌿</div>
+                    <div class="metric-value text-gradient-purple">{{ hero.metrics.bad_commits }}</div>
+                    <div class="metric-label">{{ hero.metrics.bad_commits_label }}</div>
+                    <div class="metric-sub">{{ hero.metrics.bad_commits_sub }}</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-icon">⏱️</div>
+                    <div class="metric-value text-gradient-cyan">{{ hero.metrics.uptime_readiness }}</div>
+                    <div class="metric-label">{{ hero.metrics.uptime_label }}</div>
+                    <div class="metric-sub">{{ hero.metrics.uptime_sub }}</div>
+                </div>
+            </div>
+
+            <div class="telemetry-ribbon">
+                {% for item in hero.telemetry %}
+                <div class="telemetry-item">
+                    <span>{{ item.label }}</span>
+                    <span class="telemetry-val">{{ item.val }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- 2. Workflow (Automated Flow) Section -->
+    <section id="workflow" class="section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">{{ workflow.tag }}</span>
+                <h2 class="section-title">{{ workflow.title }}</h2>
+                <p class="section-subtitle">{{ workflow.subtitle }}</p>
+            </div>
+
+            <div class="workflow-pipeline">
+                <div class="workflow-steps-grid">
+                    {% for step in workflow.steps %}
+                    <div class="flow-step-card">
+                        <span class="flow-step-num">{{ step.num }}</span>
+                        <div class="flow-bot-icon">{{ step.icon }}</div>
+                        <h3 class="flow-step-title">{{ step.title }}</h3>
+                        <div class="flow-bot-id">{{ step.bot_id }}</div>
+                        <p class="flow-step-desc">{{ step.desc | safe }}</p>
+                        <div class="flow-badge-list">
+                            {% for badge in step.badges %}
+                            <span class="flow-badge">{{ badge }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Least Privilege Security Model Callout -->
+                <div class="security-callout">
+                    <div class="security-icon-large">🔒</div>
+                    <div class="security-text">
+                        <h3>{{ workflow.security.title }}</h3>
+                        <p>{{ workflow.security.desc }}</p>
+                        <div class="security-rules-grid">
+                            {% for rule in workflow.security.rules %}
+                            <div class="security-rule-item">
+                                <strong>{{ rule.label }}</strong>
+                                {{ rule.text }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. Team Roster Section -->
+    <section id="roster" class="section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">{{ roster.tag }}</span>
+                <h2 class="section-title">{{ roster.title }}</h2>
+                <p class="section-subtitle">{{ roster.subtitle }}</p>
+            </div>
+
+            <div class="roster-grid">
+                <!-- Human Lead Profile -->
+                <div class="agent-card agent-card-human">
+                    <div class="agent-avatar">👤</div>
+                    <div class="agent-meta">
+                        <div class="agent-name-row">
+                            <h3 class="agent-name">{{ roster.human_lead.name }}</h3>
+                            <span class="agent-badge">{{ roster.human_lead.badge }}</span>
+                        </div>
+                        <div class="agent-role">{{ roster.human_lead.role }}</div>
+                        <p class="agent-description" style="margin-top: 0.75rem; margin-bottom: 0;">
+                            {{ roster.human_lead.desc }}
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 5 AI Bot Profiles -->
+                {% for agent in roster.agents %}
+                <div class="agent-card">
+                    <div class="agent-header">
+                        <div class="agent-avatar">{{ agent.icon }}</div>
+                        <div class="agent-meta">
+                            <div class="agent-name-row">
+                                <h3 class="agent-name">{{ agent.name }}</h3>
+                                <span class="agent-badge">{{ agent.badge }}</span>
+                            </div>
+                            <div class="agent-role">{{ agent.id }} • {{ agent.role }}</div>
+                        </div>
+                    </div>
+
+                    <p class="agent-description">{{ agent.description }}</p>
+
+                    <div class="agent-skills-title">{{ roster.skills_title }}</div>
+                    <ul class="agent-skills-list">
+                        {% for skill in agent.skills %}
+                        <li class="agent-skill-item">{{ skill }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- 4. Capabilities & Services Section -->
+    <section id="capabilities" class="section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">{{ capabilities_section.tag }}</span>
+                <h2 class="section-title">{{ capabilities_section.title }}</h2>
+                <p class="section-subtitle">{{ capabilities_section.subtitle }}</p>
+            </div>
+
+            <div class="capabilities-grid">
+                {% for cap in capabilities_section['items'] %}
+                <div class="capability-card">
+                    <div class="capability-icon-box">{{ cap.icon }}</div>
+                    <h3 class="capability-title">{{ cap.title }}</h3>
+                    <p class="capability-desc">{{ cap.description }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- 5. Analytics & Trust (AI vs Classic Dev Matrix) Section -->
+    <section id="trust" class="section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">{{ trust.tag }}</span>
+                <h2 class="section-title">{{ trust.title }}</h2>
+                <p class="section-subtitle">{{ trust.subtitle }}</p>
+            </div>
+
+            <div class="matrix-wrapper">
+                <table class="matrix-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 24%;">{{ trust.col_dim }}</th>
+                            <th class="col-team" style="width: 38%;">{{ trust.col_team }}</th>
+                            <th style="width: 26%;">{{ trust.col_classic }}</th>
+                            <th style="width: 12%;">{{ trust.col_adv }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in trust.rows %}
+                        <tr>
+                            <td class="matrix-dimension">
+                                <span>{{ row.icon }}</span> {{ row.dimension }}
+                            </td>
+                            <td class="col-team">
+                                {{ row.team }}
+                            </td>
+                            <td class="col-classic">
+                                {{ row.classic }}
+                            </td>
+                            <td>
+                                <span class="matrix-advantage-badge">{{ row.advantage }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container footer-content">
+            <div class="footer-brand">
+                <div class="nav-brand">
+                    <span class="nav-logo-icon">⚡</span>
+                    <span class="nav-title">{{ nav.title_prefix }} <span class="text-gradient-cyan">{{ nav.title_suffix }}</span></span>
+                </div>
+                <div class="footer-tagline">{{ footer.tagline }}</div>
+            </div>
+
+            <div class="footer-badges">
+                {% for badge in footer.badges %}
+                <span class="footer-badge">{{ badge }}</span>
+                {% endfor %}
+            </div>
+        </div>
+    </footer>
+
+    <!-- Interactive Lead Intake Modal Dialog -->
+    <div id="leadModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-hidden="true">
+        <div class="modal-backdrop" id="modalBackdrop"></div>
+        <div class="modal-dialog">
+            <button type="button" class="modal-close" id="modalCloseBtn" aria-label="{{ modal.close_btn_aria }}">&times;</button>
+            
+            <div class="modal-header">
+                <div class="modal-badge">{{ modal.badge }}</div>
+                <h3 class="modal-title" id="modalTitle">{{ modal.title }}</h3>
+                <p class="modal-subtitle">{{ modal.subtitle }}</p>
+            </div>
+
+            <!-- Lead Intake Form View -->
+            <form id="leadForm" class="modal-form" novalidate>
+                <div class="form-alert" id="formAlert" role="alert" style="display: none;"></div>
+
+                <div class="form-group">
+                    <label for="leadName" class="form-label">
+                        <span>{{ modal.name_label }}</span>
+                        <span class="form-badge-req">{{ modal.required_badge }}</span>
+                    </label>
+                    <input type="text" id="leadName" name="name" class="form-input" required placeholder="{{ modal.name_placeholder }}" autocomplete="name">
+                    <div class="form-error" id="nameError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="leadContact" class="form-label">
+                        <span>{{ modal.contact_label }}</span>
+                        <span class="form-badge-req">{{ modal.required_badge }}</span>
+                    </label>
+                    <input type="text" id="leadContact" name="contact" class="form-input" required placeholder="{{ modal.contact_placeholder }}" autocomplete="email tel">
+                    <div class="form-error" id="contactError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="leadMessage" class="form-label">
+                        <span>{{ modal.message_label }}</span>
+                        <span class="form-badge-opt">{{ modal.optional_badge }}</span>
+                    </label>
+                    <textarea id="leadMessage" name="message" class="form-textarea" rows="3" placeholder="{{ modal.message_placeholder }}"></textarea>
+                    <div class="form-error" id="messageError"></div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" id="leadSubmitBtn" class="btn btn-primary-green btn-block" data-submitting-text="{{ modal.submitting_btn }}">
+                        <span class="spinner" id="btnSpinner" style="display: none;"></span>
+                        <span class="btn-submit-label" id="btnSubmitText">{{ modal.submit_btn }}</span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Success Confirmation State View -->
+            <div id="leadSuccessContainer" class="modal-success" style="display: none;">
+                <div class="success-icon-wrap">
+                    <div class="success-checkmark-circle">
+                        <svg class="success-checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                            <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
+                            <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                        </svg>
+                    </div>
+                </div>
+                <h3 class="success-title">{{ modal.success_title }}</h3>
+                <p class="success-desc">{{ modal.success_msg }}</p>
+                <div class="success-actions">
+                    <button type="button" class="btn btn-secondary" id="successCloseBtn">
+                        {{ modal.success_close_btn }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interactive Script -->
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
