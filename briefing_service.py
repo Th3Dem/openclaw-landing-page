@@ -398,6 +398,35 @@ def is_vague_or_gibberish(text: str) -> bool:
     return cleaned in vague_phrases
 
 
+def is_valid_contact(text: str) -> bool:
+    """Validate that text contains a genuine contact identifier (email, phone, telegram)."""
+    t = text.strip()
+    if len(t) < 3:
+        return False
+    if "@" in t:
+        return True
+    if "telegram" in t.lower() or "t.me" in t.lower():
+        return True
+    digits = re.sub(r"\D", "", t)
+    if len(digits) >= 7:
+        return True
+    if any(k in t.lower() for k in [".com", ".ru", ".io", ".org", ".net", ".dev"]):
+        return True
+    return False
+
+
+def is_meaningful_content(text: str) -> bool:
+    """Check if the text has actual substantive content beyond gibberish."""
+    if is_vague_or_gibberish(text):
+        return False
+    cleaned = text.strip().lower()
+    if re.match(r"^[бвгджзйклмнпрстфхцчшщьъ\s]+$", cleaned) and len(cleaned) <= 6:
+        return False
+    if re.match(r"^[bcdfghjklmnpqrstvwxyz\s]+$", cleaned) and len(cleaned) <= 6:
+        return False
+    return len(cleaned) >= 3
+
+
 def detect_niche(
     text: str, is_ru: bool = True
 ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
@@ -557,117 +586,125 @@ def analyze_extracted_dimensions(
     if current_message and current_message.strip():
         all_user_texts.append(current_message.strip())
 
-    combined_text = " ".join(all_user_texts).lower()
-
-    # Step-by-step heuristic extraction
     for idx, text in enumerate(all_user_texts):
         t_low = text.lower()
-        if idx == 0 or any(
-            k in t_low
-            for k in [
-                "landing",
-                "лендинг",
-                "сайт",
-                "платформ",
-                "магазин",
-                "saas",
-                "app",
-                "b2b",
-                "цель",
-                "проект",
-            ]
-        ):
-            if "goals" not in extracted:
-                extracted["goals"] = text
-        if any(
-            k in t_low
-            for k in [
-                "блок",
-                "раздел",
-                "структур",
-                "hero",
-                "секц",
-                "тариф",
-                "цен",
-                "отзыв",
-                "меню",
-                "каталог",
-                "section",
-                "pricing",
-            ]
-        ):
-            extracted["structure"] = text
-        if any(
-            k in t_low
-            for k in [
-                "дизайн",
-                "стил",
-                "цвет",
-                "темн",
-                "минимал",
-                "неон",
-                "референс",
-                "helias",
-                "apple",
-                "style",
-                "dark",
-                "light",
-            ]
-        ):
-            extracted["style"] = text
-        if any(
-            k in t_low
-            for k in [
-                "интеграц",
-                "crm",
-                "telegram",
-                "оплат",
-                "калькулятор",
-                "форма",
-                "чат",
-                "бот",
-                "feature",
-                "payment",
-            ]
-        ):
-            extracted["features"] = text
-        if any(
-            k in t_low
-            for k in [
-                "@",
-                "telegram",
-                "телеграм",
-                "mail",
-                "почт",
-                "+7",
-                "+1",
-                "89",
-                "phone",
-                "тел",
-                ".com",
-                ".ru",
-            ]
-        ):
+        if is_meaningful_content(text):
+            if idx == 0 or any(
+                k in t_low
+                for k in [
+                    "landing",
+                    "лендинг",
+                    "сайт",
+                    "платформ",
+                    "магазин",
+                    "saas",
+                    "app",
+                    "b2b",
+                    "цель",
+                    "проект",
+                    "доставк",
+                    "торты",
+                    "бургер",
+                ]
+            ):
+                if "goals" not in extracted:
+                    extracted["goals"] = text
+            if any(
+                k in t_low
+                for k in [
+                    "блок",
+                    "раздел",
+                    "структур",
+                    "hero",
+                    "секц",
+                    "тариф",
+                    "цен",
+                    "отзыв",
+                    "меню",
+                    "каталог",
+                    "section",
+                    "pricing",
+                ]
+            ):
+                extracted["structure"] = text
+            if any(
+                k in t_low
+                for k in [
+                    "дизайн",
+                    "стил",
+                    "цвет",
+                    "темн",
+                    "минимал",
+                    "неон",
+                    "референс",
+                    "helias",
+                    "apple",
+                    "style",
+                    "dark",
+                    "light",
+                    "glass",
+                ]
+            ):
+                extracted["style"] = text
+            if any(
+                k in t_low
+                for k in [
+                    "интеграц",
+                    "crm",
+                    "telegram",
+                    "оплат",
+                    "калькулятор",
+                    "форма",
+                    "чат",
+                    "бот",
+                    "feature",
+                    "payment",
+                    "фильтр",
+                ]
+            ):
+                extracted["features"] = text
+
+        if is_valid_contact(text):
             extracted["contact"] = text
 
-    # Fallback to positional mapping if user answered sequentially
+    # Positional mapping fallback ONLY if entries are meaningful
+    valid_texts = [t for t in all_user_texts if is_meaningful_content(t)]
     for i, dim in enumerate(DIMENSIONS):
-        if dim not in extracted and i < len(all_user_texts):
-            extracted[dim] = all_user_texts[i]
+        if dim not in extracted and i < len(valid_texts):
+            candidate = valid_texts[i]
+            if dim == "contact":
+                if is_valid_contact(candidate):
+                    extracted[dim] = candidate
+            else:
+                extracted[dim] = candidate
 
     return extracted
 
 
 def calculate_completeness(extracted: Dict[str, str]) -> Tuple[int, List[str]]:
     """Calculate brief completeness percentage (0 to 100) and identify missing dimensions."""
-    covered = [
-        k
-        for k in DIMENSIONS
-        if k in extracted and not is_vague_or_gibberish(extracted[k])
-    ]
-    score = int((len(covered) / len(DIMENSIONS)) * 100)
-    missing = [k for k in DIMENSIONS if k not in covered]
-    return score, missing
+    weights = {
+        "goals": 20,
+        "structure": 20,
+        "style": 15,
+        "features": 20,
+        "contact": 25,
+    }
+    score = 0
+    missing = []
+    for dim, weight in weights.items():
+        val = extracted.get(dim, "")
+        if dim == "contact":
+            if is_valid_contact(val):
+                score += weight
+            else:
+                missing.append(dim)
+        else:
+            if is_meaningful_content(val):
+                score += weight
+            else:
+                missing.append(dim)
+    return min(100, score), missing
 
 
 def generate_autonomous_response(
@@ -774,32 +811,57 @@ def generate_autonomous_response(
             "brief_summary": None,
         }
 
-    # 3. Try LLM Call first if key exists
+    # 3. Assess verified dimensions and completeness score
+    verified_score, missing_dims = calculate_completeness(extracted)
+    contact_val = extracted.get("contact", "")
+    has_valid_contact_val = is_valid_contact(contact_val)
+
+    # 4. Try LLM Call first if key exists
     system_prompt = SYSTEM_PROMPT_RU if is_ru else SYSTEM_PROMPT_EN
     llm_dict = call_llm_if_available(system_prompt, history, last_user_msg)
     if llm_dict:
         reply_text = llm_dict.get("reply", "")
         llm_suggestions = llm_dict.get("suggestions", [])
-        llm_completeness = int(
-            llm_dict.get("completeness", min(100, max(20, turn_count * 15)))
-        )
-        llm_is_completed = bool(llm_dict.get("is_completed", False)) or (
-            turn_count >= 5
-            and (
-                "@" in all_text
-                or "telegram" in all_text.lower()
-                or "phone" in all_text.lower()
-                or ".com" in all_text.lower()
-                or ".ru" in all_text.lower()
-            )
+        llm_completeness = int(llm_dict.get("completeness", max(10, verified_score)))
+
+        # STRICT COMPLETION CONDITION: Only finish if all dimensions are substantive and contact is valid
+        is_truly_completed = (
+            verified_score >= 95
+            and has_valid_contact_val
+            and not is_vague_or_gibberish(last_user_msg)
+            and bool(llm_dict.get("is_completed", False))
         )
 
-        brief_id = f"brief-{uuid.uuid4().hex[:8]}" if llm_is_completed else None
+        # If LLM prematurely marked completion without valid contact or full scope, override it!
+        if llm_dict.get("is_completed", False) and not is_truly_completed:
+            llm_completeness = min(90, max(verified_score, llm_completeness))
+            if not has_valid_contact_val:
+                extra_q = (
+                    "\n\nПожалуйста, укажите ваши контактные данные (Telegram @username, email или телефон), чтобы мы могли направить вам проектную смету и ТЗ."
+                    if is_ru
+                    else "\n\nPlease provide your contact details (Telegram @handle, Email, or Phone) so we can dispatch the specification."
+                )
+                reply_text += extra_q
+                llm_suggestions = (
+                    [
+                        "@username (Telegram)",
+                        "my.email@domain.com",
+                        "+7 (999) 000-00-00",
+                    ]
+                    if is_ru
+                    else [
+                        "@username (Telegram)",
+                        "founder@startup.io",
+                        "+1 (555) 019-2834",
+                    ]
+                )
+
+        brief_id = f"brief-{uuid.uuid4().hex[:8]}" if is_truly_completed else None
         brief_md = (
-            synthesize_brief_markdown(extracted, lang) if llm_is_completed else None
+            synthesize_brief_markdown(extracted, lang) if is_truly_completed else None
         )
 
-        if llm_is_completed and brief_id:
+        if is_truly_completed and brief_id:
             record = {
                 "brief_id": brief_id,
                 "session_id": session_id,
@@ -825,7 +887,7 @@ def generate_autonomous_response(
             except Exception as email_err:
                 logger.warning("Could not dispatch brief email: %s", email_err)
 
-        if not llm_suggestions and not llm_is_completed:
+        if not llm_suggestions and not is_truly_completed:
             niche_name, niche_info = detect_niche(all_text, is_ru)
             llm_suggestions = (
                 niche_info["chips"]
@@ -847,23 +909,88 @@ def generate_autonomous_response(
                 )
             )
 
+        final_score = (
+            100
+            if is_truly_completed
+            else max(10, min(95, max(verified_score, llm_completeness)))
+        )
         return {
             "session_id": session_id,
             "message": reply_text,
-            "suggestions": [] if llm_is_completed else llm_suggestions,
-            "completeness": 100 if llm_is_completed else llm_completeness,
-            "is_completed": llm_is_completed,
+            "suggestions": [] if is_truly_completed else llm_suggestions,
+            "completeness": final_score,
+            "is_completed": is_truly_completed,
             "brief_id": brief_id,
             "extracted_dimensions": extracted,
             "brief_summary": brief_md,
         }
 
-    # 4. Deep Niche Analysis & Contextual Reasoning Engine
+    # 5. Deep Niche Analysis & Continuous Semantic Fallback Engine
     niche_name, niche_info = detect_niche(all_text, is_ru)
     first_user_goal = user_turns[0]
 
-    # Turn 1 Response: Deep Dive into Product Concept & Niche Architecture
-    if turn_count == 1:
+    # Check if all dimensions are verified and valid contact provided
+    if (
+        verified_score >= 95
+        and has_valid_contact_val
+        and not is_vague_or_gibberish(last_user_msg)
+    ):
+        brief_id = f"brief-{uuid.uuid4().hex[:8]}"
+        brief_md = synthesize_brief_markdown(extracted, lang)
+        created_at = datetime.now(timezone.utc).isoformat()
+
+        record = {
+            "brief_id": brief_id,
+            "session_id": session_id,
+            "client_ip": client_ip,
+            "language": lang,
+            "created_at": created_at,
+            "extracted_dimensions": extracted,
+            "brief_markdown": brief_md,
+        }
+        save_brief_record(record)
+
+        try:
+            from email_service import send_lead_notification_email
+
+            email_lead_data = {
+                "lead_id": brief_id,
+                "name": extracted.get("contact", "AI Brief Client"),
+                "contact": extracted.get("contact", "Specified in Brief"),
+                "message": f"⚡ СИНТЕЗИРОВАННЫЙ ТЕХНИЧЕСКИЙ БРИФ ПРОЕКТА:\n\n{brief_md}",
+                "client_ip": client_ip,
+                "created_at": created_at,
+            }
+            send_lead_notification_email(email_lead_data)
+        except Exception as email_err:
+            logger.warning("Could not dispatch brief email: %s", email_err)
+
+        completion_msg = (
+            f"🎯 Готово! Ваш технический бриф (ID: {brief_id}) успешно синтезирован"
+            " и направлен архитектору OpenClaw. Нажмите кнопку «📋 Посмотреть бриф»"
+            " ниже, чтобы ознакомиться с полной спецификацией. Мы свяжемся с вами"
+            " в течение рабочего дня с готовой оценкой!"
+            if is_ru
+            else (
+                f"🎯 Done! Your technical specification brief (ID: {brief_id}) has"
+                " been synthesized and delivered to OpenClaw Lead Architect. Click"
+                " '📋 View Brief' below to inspect the full specification. We will"
+                " reach out shortly with the development timeline and pricing!"
+            )
+        )
+        return {
+            "session_id": session_id,
+            "message": completion_msg,
+            "suggestions": [],
+            "completeness": 100,
+            "is_completed": True,
+            "brief_id": brief_id,
+            "brief_summary": brief_md,
+            "extracted_dimensions": extracted,
+        }
+
+    # If not completed, dynamically ask for the next missing dimension:
+    if "structure" in missing_dims or "structure" not in extracted:
         if niche_info:
             reply = (
                 f"Отличная ниша («{first_user_goal}»)! {niche_info['insights']}\n\n"
@@ -881,18 +1008,15 @@ def generate_autonomous_response(
             chips = niche_info["chips"]
         else:
             reply = (
-                f"Принято, идея «{first_user_goal}» звучит очень перспективно! "
-                "Чтобы спроектировать правильный пользовательский путь (Customer"
-                " Journey Map), какие ключевые смысловые блоки критически важно"
-                " показать на странице? (Например: Hero с оффером, интерактивный"
-                " калькулятор/квиз, блок кейсов, прозрачные тарифы и отзывы?)"
+                f"Принято, идея «{first_user_goal}» звучит перспективно! "
+                "Чтобы спроектировать правильный путь клиента, какие ключевые смысловые"
+                " блоки важно показать на странице? (Hero с оффером, калькулятор/квиз,"
+                " кейсы, тарифы, отзывы?)"
                 if is_ru
                 else (
-                    f"Understood, '{first_user_goal}' is a compelling concept!"
-                    " To engineer an optimal Customer Journey Map, what core"
-                    " page sections are essential? (E.g., High-impact Hero CTA,"
-                    " Interactive Calculator/Quiz, Case Studies, Pricing Tiers,"
-                    " and Proof Matrix?)"
+                    f"Understood, '{first_user_goal}' is a solid concept!"
+                    " To engineer an optimal page flow, what core sections are essential?"
+                    " (Hero CTA, Calculator/Quiz, Case Studies, Pricing, Proof Matrix?)"
                 )
             )
             chips = (
@@ -914,30 +1038,24 @@ def generate_autonomous_response(
             "session_id": session_id,
             "message": reply,
             "suggestions": chips,
-            "completeness": 35,
+            "completeness": max(20, verified_score),
             "is_completed": False,
             "extracted_dimensions": extracted,
             "brief_summary": None,
         }
 
-    # Turn 2 Response: Visual Identity, Brand Vibe & References
-    if turn_count == 2:
-        structure_choice = last_user_msg
+    if "style" in missing_dims or "style" not in extracted:
         reply = (
-            f"Структура и логика блоков («{structure_choice}») отлично подходят"
-            " для вашей задачи! Теперь определим визуальную атмосферу бренда."
+            "Структура определена! Теперь выберем визуальную атмосферу бренда."
             " Какая эстетика вам ближе: глубокий обсидиановый минимализм со"
             " светящимися неоновыми акцентами (как Helias), чистый просторный"
-            " Apple-стиль или высокотехнологичный Glassmorphism с плавными"
-            " микро-анимациями?"
+            " Apple-стиль или высокотехнологичный Glassmorphism?"
             if is_ru
             else (
-                f"The section blueprint ('{structure_choice}') aligns perfectly"
-                " with your goals! Now let's establish the visual brand identity."
-                " What aesthetic atmosphere do you envision: deep obsidian dark"
-                " minimalism with glowing accents (Helias aesthetic), clean"
-                " spacious Apple-like light theme, or high-tech glassmorphism with"
-                " fluid micro-interactions?"
+                "Section blueprint is clear! Now let's establish the visual brand identity."
+                " What aesthetic do you envision: obsidian dark minimalism with"
+                " neon accents (Helias aesthetic), clean spacious Apple-like style,"
+                " or cyber glassmorphism?"
             )
         )
         chips = (
@@ -959,29 +1077,22 @@ def generate_autonomous_response(
             "session_id": session_id,
             "message": reply,
             "suggestions": chips,
-            "completeness": 60,
+            "completeness": max(45, verified_score),
             "is_completed": False,
             "extracted_dimensions": extracted,
             "brief_summary": None,
         }
 
-    # Turn 3 Response: Integrations, Tech Workflow & Notifications
-    if turn_count == 3:
-        style_choice = last_user_msg
+    if "features" in missing_dims or "features" not in extracted:
         reply = (
-            f"Визуальный стиль «{style_choice}» будет выглядеть премиально и"
-            " современно! Какие технические интеграции и каналы обработки лидов"
-            " потребуются? Например: мгновенные уведомления о заявках в"
-            " Telegram-чат вашей команды, онлайн-оплата (карты/СБП/Долями),"
-            " синхронизация с CRM (AmoCRM, Bitrix24) или мультиязычность"
-            " (RU/EN)?"
+            "Стиль зафиксирован! Какие технические интеграции и каналы обработки заявок"
+            " потребуются? Например: мгновенные оповещения в Telegram-чат вашей"
+            " команды, онлайн-оплата (карты/СБП), CRM (AmoCRM/Bitrix24) или мультиязычность?"
             if is_ru
             else (
-                f"Visual aesthetic '{style_choice}' will look outstanding and"
-                " premium! What technical integrations and backend workflows are"
-                " required? For example: instant Telegram team alerts,"
-                " Stripe/credit card checkout, CRM webhook sync, or bilingual"
-                " (EN/RU) localization?"
+                "Design style noted! What technical integrations are required?"
+                " For example: instant Telegram alerts, online checkout, CRM sync,"
+                " or bilingual (RU/EN) localization?"
             )
         )
         chips = (
@@ -1003,107 +1114,45 @@ def generate_autonomous_response(
             "session_id": session_id,
             "message": reply,
             "suggestions": chips,
-            "completeness": 80,
+            "completeness": max(70, verified_score),
             "is_completed": False,
             "extracted_dimensions": extracted,
             "brief_summary": None,
         }
 
-    # Turn 4 Response: Contact Information
-    if turn_count == 4:
-        reply = (
-            "Супер! Концепт, архитектура и функционал вашего проекта полностью"
-            " согласованы. Пожалуйста, укажите ваше имя и удобный контакт для"
-            " связи (Telegram @username, email или телефон) — я сразу сформирую"
-            " итоговую спецификацию и отправлю ее вам и нашей инженерной"
-            " команде."
-            if is_ru
-            else (
-                "Superb! All technical architecture and functional requirements"
-                " are fully defined. Please provide your name and preferred contact"
-                " handle (Telegram, Email, or Phone) — I will immediately"
-                " synthesize the complete technical specification and dispatch it"
-                " to you and our engineering team."
-            )
-        )
-        chips = (
-            [
-                "@username (Telegram)",
-                "my.email@domain.com",
-                "+7 (999) 000-00-00",
-            ]
-            if is_ru
-            else [
-                "@username (Telegram)",
-                "founder@startup.io",
-                "+1 (555) 019-2834",
-            ]
-        )
-        return {
-            "session_id": session_id,
-            "message": reply,
-            "suggestions": chips,
-            "completeness": 95,
-            "is_completed": False,
-            "extracted_dimensions": extracted,
-            "brief_summary": None,
-        }
-
-    # Turn 5+ Response: Brief Completion & Synthesis
-    brief_id = f"brief-{uuid.uuid4().hex[:8]}"
-    brief_md = synthesize_brief_markdown(extracted, lang)
-    created_at = datetime.now(timezone.utc).isoformat()
-
-    record = {
-        "brief_id": brief_id,
-        "session_id": session_id,
-        "client_ip": client_ip,
-        "language": lang,
-        "created_at": created_at,
-        "extracted_dimensions": extracted,
-        "brief_markdown": brief_md,
-    }
-    save_brief_record(record)
-
-    # Email dispatch
-    try:
-        from email_service import send_lead_notification_email
-
-        email_lead_data = {
-            "lead_id": brief_id,
-            "name": extracted.get("contact", "AI Brief Client"),
-            "contact": extracted.get("contact", "Specified in Brief"),
-            "message": f"⚡ СИНТЕЗИРОВАННЫЙ ТЕХНИЧЕСКИЙ БРИФ ПРОЕКТА:\n\n{brief_md}",
-            "client_ip": client_ip,
-            "created_at": created_at,
-        }
-        send_lead_notification_email(email_lead_data)
-    except Exception as email_err:
-        logger.warning("Could not dispatch brief email: %s", email_err)
-
-    completion_msg = (
-        f"🎯 Готово! Ваш технический бриф (ID: {brief_id}) успешно синтезирован"
-        " и направлен архитектору OpenClaw. Нажмите кнопку «📋 Посмотреть бриф»"
-        " ниже, чтобы ознакомиться с полной спецификацией. Мы свяжемся с вами"
-        " в течение рабочего дня с готовой оценкой!"
+    # If only contact is missing or invalid:
+    reply = (
+        "Отлично, все технические и визуальные требования сформированы! Пожалуйста,"
+        " укажите ваше имя и реальный контакт для связи (Telegram @username, email или телефон),"
+        " чтобы я зафиксировал бриф и передал его архитектору для расчета сметы."
         if is_ru
         else (
-            f"🎯 Done! Your technical specification brief (ID: {brief_id}) has"
-            " been synthesized and delivered to OpenClaw Lead Architect. Click"
-            " '📋 View Brief' below to inspect the full specification. We will"
-            " reach out shortly with the development timeline and pricing!"
+            "Excellent, all architectural and design requirements are in place!"
+            " Please provide your name and valid contact handle (Telegram, Email, or Phone)"
+            " so I can record the brief and dispatch it for estimation."
         )
     )
-
+    chips = (
+        [
+            "@username (Telegram)",
+            "my.email@domain.com",
+            "+7 (999) 000-00-00",
+        ]
+        if is_ru
+        else [
+            "@username (Telegram)",
+            "founder@startup.io",
+            "+1 (555) 019-2834",
+        ]
+    )
     return {
         "session_id": session_id,
-        "message": completion_msg,
-        "suggestions": [],
-        "completeness": 100,
-        "is_completed": True,
-        "brief_id": brief_id,
-        "brief_summary": brief_md,
+        "message": reply,
+        "suggestions": chips,
+        "completeness": max(85, verified_score),
+        "is_completed": False,
         "extracted_dimensions": extracted,
+        "brief_summary": None,
     }
 
 
