@@ -10,13 +10,15 @@ import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger("openclaw.email_service")
 
 
-def load_env_file(filepath: str = ".env") -> None:
+def load_env_file(filepath: Optional[str] = None, override: bool = False) -> None:
     """Parse and load environment variables from a local .env file if it exists."""
+    if filepath is None:
+        filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
     if not os.path.exists(filepath):
         return
     try:
@@ -28,7 +30,7 @@ def load_env_file(filepath: str = ".env") -> None:
                 k, v = line.split("=", 1)
                 k = k.strip()
                 v = v.strip().strip("'\"")
-                if k not in os.environ:
+                if override or k not in os.environ:
                     os.environ[k] = v
     except Exception as e:
         logger.warning("Could not parse .env file %s: %s", filepath, e)
@@ -38,9 +40,11 @@ def load_env_file(filepath: str = ".env") -> None:
 load_env_file()
 
 
-def get_email_config() -> Dict[str, Any]:
+def get_email_config(reload_env: bool = False) -> Dict[str, Any]:
     """Retrieve email and SMTP configuration from environment variables."""
-    load_env_file()
+    if reload_env:
+        load_env_file(override=True)
+
     host = os.getenv("SMTP_HOST", "smtp.yandex.ru")
     port_str = os.getenv("SMTP_PORT", "465")
     try:
@@ -50,7 +54,11 @@ def get_email_config() -> Dict[str, Any]:
     user = os.getenv("SMTP_USER", "qxzib@yandex.ru")
     password = os.getenv("SMTP_PASSWORD", "")
     use_ssl_str = os.getenv("SMTP_USE_SSL", "true").strip().lower()
-    use_ssl = use_ssl_str in ("true", "1", "yes") or port == 465
+    use_ssl = (
+        (use_ssl_str in ("true", "1", "yes"))
+        if port != 465
+        else (use_ssl_str not in ("false", "0", "no"))
+    )
     recipient = os.getenv("NOTIFICATION_RECIPIENT_EMAIL", "qxzib@yandex.ru")
     sender = os.getenv("NOTIFICATION_SENDER_EMAIL", user or "qxzib@yandex.ru")
 
