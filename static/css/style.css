@@ -211,6 +211,7 @@ img, svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 20px;
 }
 
 .nav-brand {
@@ -220,6 +221,8 @@ img, svg {
   font-weight: 800;
   font-size: 1.25rem;
   letter-spacing: -0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .nav-logo-icon {
@@ -227,32 +230,30 @@ img, svg {
   filter: drop-shadow(0 0 8px rgba(6, 182, 212, 0.6));
 }
 
-.nav-badge {
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  color: var(--cyan-400);
-  background: rgba(6, 182, 212, 0.12);
-  border: 1px solid rgba(6, 182, 212, 0.3);
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
-}
-
 .nav-links {
   display: flex;
   align-items: center;
   gap: 24px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.nav-links li {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .nav-link {
   font-size: 0.875rem;
   font-weight: 600;
-  line-height: 1.15;
+  line-height: 1;
   letter-spacing: -0.01em;
   color: var(--text-secondary);
   transition: var(--transition);
   position: relative;
   padding: 4px 0;
+  white-space: nowrap;
+  display: inline-block;
 }
 
 .nav-link:hover {
@@ -279,6 +280,8 @@ img, svg {
   display: flex;
   align-items: center;
   gap: 14px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Language Switcher Pill */
