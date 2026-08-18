@@ -129,7 +129,7 @@ function initLeadModal() {
     }
 
     function openModal() {
-        modal.classList.add("is-active");
+        modal.classList.add("active", "is-active");
         modal.setAttribute("aria-hidden", "false");
         document.body.style.overflow = "hidden";
 
@@ -145,7 +145,7 @@ function initLeadModal() {
     }
 
     function closeModal() {
-        modal.classList.remove("is-active");
+        modal.classList.remove("active", "is-active");
         modal.setAttribute("aria-hidden", "true");
         document.body.style.overflow = "";
         clearValidationErrors();
@@ -168,7 +168,7 @@ function initLeadModal() {
 
     // Close on Escape key press
     document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && modal.classList.contains("is-active")) {
+        if (e.key === "Escape" && (modal.classList.contains("active") || modal.classList.contains("is-active"))) {
             closeModal();
         }
     });

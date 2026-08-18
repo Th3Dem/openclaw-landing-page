@@ -1057,12 +1057,16 @@ img, svg {
   padding: 20px;
   visibility: hidden;
   opacity: 0;
+  pointer-events: none;
   transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.3s;
 }
 
-.modal.active {
+.modal.active,
+.modal.is-active,
+.modal[aria-hidden="false"] {
   visibility: visible;
   opacity: 1;
+  pointer-events: auto;
 }
 
 .modal-backdrop {
@@ -1088,7 +1092,9 @@ img, svg {
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.modal.active .modal-dialog {
+.modal.active .modal-dialog,
+.modal.is-active .modal-dialog,
+.modal[aria-hidden="false"] .modal-dialog {
   transform: scale(1) translateY(0);
 }
 
