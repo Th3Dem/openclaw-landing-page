@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=2.0.1-modal-fix">
+    <link rel="stylesheet" href="/static/css/style.css?v=2.0.2-navbar-polish">
 </head>
 <body>
 
@@ -19,7 +19,6 @@
             <a href="#hero" class="nav-brand">
                 <span class="nav-logo-icon">⚡</span>
                 <span class="nav-title">{{ nav.title_prefix }} <span class="text-gradient-cyan">{{ nav.title_suffix }}</span></span>
-                <span class="nav-badge">v{{ version }}</span>
             </a>
             <ul class="nav-links">
                 <li><a href="#hero" class="nav-link">{{ nav.overview }}</a></li>
@@ -30,22 +29,20 @@
             </ul>
 
             <div class="nav-actions">
-                <!-- Language Switcher Pill -->
+                <!-- Language Switcher Pill (RU / ENG only) -->
                 <div class="lang-switcher" id="langSwitcher" role="navigation" aria-label="Language Selector">
-                    <a href="/?lang=en" class="lang-btn {% if lang == 'en' %}active{% endif %}" data-lang="en" title="English" aria-label="Switch to English">
-                        <span class="lang-flag">🇬🇧</span>
-                        <span class="lang-code">EN</span>
+                    <a href="/?lang=ru" class="lang-btn {% if lang == 'ru' %}active{% endif %}" data-lang="ru" title="Русский" aria-label="Переключить на русский">
+                        <span class="lang-code">RU</span>
                     </a>
                     <span class="lang-divider">/</span>
-                    <a href="/?lang=ru" class="lang-btn {% if lang == 'ru' %}active{% endif %}" data-lang="ru" title="Русский" aria-label="Переключить на русский">
-                        <span class="lang-flag">🇷🇺</span>
-                        <span class="lang-code">RU</span>
+                    <a href="/?lang=en" class="lang-btn {% if lang == 'en' %}active{% endif %}" data-lang="en" title="English" aria-label="Switch to English">
+                        <span class="lang-code">ENG</span>
                     </a>
                 </div>
 
                 <div class="nav-status">
                     <span class="pulse-dot"></span>
-                    <span>{{ nav.status }}</span>
+                    <span class="nav-status-text">{{ nav.status }}</span>
                 </div>
             </div>
         </div>

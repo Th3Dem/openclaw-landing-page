@@ -241,16 +241,18 @@ img, svg {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: 24px;
 }
 
 .nav-link {
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
   color: var(--text-secondary);
   transition: var(--transition);
   position: relative;
-  padding: 6px 0;
+  padding: 4px 0;
 }
 
 .nav-link:hover {
@@ -276,64 +278,69 @@ img, svg {
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 14px;
 }
 
 /* Language Switcher Pill */
 .lang-switcher {
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-pill);
-  padding: 3px 6px;
+  padding: 2px 4px;
 }
 
 .lang-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
+  justify-content: center;
+  padding: 2px 7px;
   border-radius: var(--radius-pill);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 700;
   font-family: var(--font-mono);
   color: var(--text-muted);
+  letter-spacing: 0.04em;
   transition: var(--transition);
 }
 
 .lang-btn.active {
   background: rgba(255, 255, 255, 0.12);
   color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: none;
 }
 
 .lang-divider {
   color: var(--text-dim);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   user-select: none;
+  padding: 0 1px;
 }
 
 .nav-status {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.8125rem;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--emerald-400);
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.25);
-  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  padding: 3px 10px;
   border-radius: var(--radius-pill);
+  white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 .pulse-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   background-color: var(--emerald-400);
   border-radius: 50%;
-  box-shadow: 0 0 10px var(--emerald-400);
+  box-shadow: 0 0 8px var(--emerald-400);
   animation: pulse-ring 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
 }
 
