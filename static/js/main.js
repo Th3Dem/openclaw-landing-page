@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initLanguageSwitcher();
     initSmoothScrolling();
     initLeadModal();
+    initChatModal();
 });
 
 /**
@@ -267,6 +268,234 @@ function initLeadModal() {
                 if (btnSpinner) btnSpinner.style.display = "none";
                 if (btnSubmitText) btnSubmitText.textContent = originalSubmitText;
             }
+        });
+    }
+}
+
+/**
+ * Initialize Interactive AI Briefing Chat Modal & State Machine.
+ */
+function initChatModal() {
+    const chatModal = document.getElementById("chatModal");
+    const openBtn = document.getElementById("openChatModalBtn");
+    const closeBtn = document.getElementById("chatModalCloseBtn");
+    const backdrop = document.getElementById("chatModalBackdrop");
+    const messagesContainer = document.getElementById("chatMessages");
+    const typingIndicator = document.getElementById("chatTyping");
+    const suggestionsContainer = document.getElementById("chatSuggestions");
+    const chatForm = document.getElementById("chatForm");
+    const chatInput = document.getElementById("chatInput");
+    const chatSendBtn = document.getElementById("chatSendBtn");
+    const completedActions = document.getElementById("chatCompletedActions");
+    const restartBtn = document.getElementById("chatRestartBtn");
+
+    if (!chatModal || !openBtn) {
+        return;
+    }
+
+    const currentLang = document.documentElement.lang || "ru";
+    let sessionId = "session-" + Math.random().toString(36).substring(2, 10);
+    let history = [];
+    let isInitialized = false;
+
+    function openModal() {
+        chatModal.classList.add("active", "is-active");
+        chatModal.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+
+        if (!isInitialized) {
+            isInitialized = true;
+            fetchInitialGreeting();
+        }
+
+        setTimeout(() => {
+            if (chatInput) chatInput.focus();
+        }, 150);
+    }
+
+    function closeModal() {
+        chatModal.classList.remove("active", "is-active");
+        chatModal.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+    }
+
+    function scrollToBottom() {
+        if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+    }
+
+    function renderMessage(role, text) {
+        if (!messagesContainer) return;
+
+        const msgDiv = document.createElement("div");
+        msgDiv.className = role === "user" ? "chat-msg chat-msg-user" : "chat-msg chat-msg-bot";
+
+        const avatar = document.createElement("div");
+        avatar.className = "chat-avatar";
+        avatar.textContent = role === "user" ? "👤" : "🤖";
+
+        const bubble = document.createElement("div");
+        bubble.className = "chat-bubble";
+        bubble.textContent = text;
+
+        msgDiv.appendChild(avatar);
+        msgDiv.appendChild(bubble);
+        messagesContainer.appendChild(msgDiv);
+
+        scrollToBottom();
+    }
+
+    function renderSuggestions(suggestions) {
+        if (!suggestionsContainer) return;
+        suggestionsContainer.innerHTML = "";
+
+        if (!suggestions || suggestions.length === 0) {
+            suggestionsContainer.style.display = "none";
+            return;
+        }
+
+        suggestionsContainer.style.display = "flex";
+        suggestions.forEach((chipText) => {
+            const chip = document.createElement("button");
+            chip.type = "button";
+            chip.className = "chat-chip";
+            chip.textContent = chipText;
+            chip.addEventListener("click", () => {
+                handleUserSend(chipText);
+            });
+            suggestionsContainer.appendChild(chip);
+        });
+
+        scrollToBottom();
+    }
+
+    async function fetchInitialGreeting() {
+        if (typingIndicator) typingIndicator.style.display = "flex";
+        scrollToBottom();
+
+        try {
+            const response = await fetch("/api/chat/briefing", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    message: null,
+                    history: [],
+                    lang: currentLang,
+                }),
+            });
+
+            const data = await response.json();
+            if (typingIndicator) typingIndicator.style.display = "none";
+
+            if (data && data.message) {
+                renderMessage("assistant", data.message);
+                history.push({ role: "assistant", content: data.message });
+                renderSuggestions(data.suggestions);
+            }
+        } catch (err) {
+            console.error("Chat briefing initialization error:", err);
+            if (typingIndicator) typingIndicator.style.display = "none";
+            renderMessage(
+                "assistant",
+                currentLang === "ru"
+                    ? "Здравствуйте! Готов обсудить ваш проект. Какой продукт вы хотите разработать?"
+                    : "Hello! Ready to discuss your project. What product would you like to build?"
+            );
+        }
+    }
+
+    async function handleUserSend(text) {
+        const cleaned = text.trim();
+        if (!cleaned) return;
+
+        // Render user message & update local state
+        renderMessage("user", cleaned);
+        history.push({ role: "user", content: cleaned });
+
+        if (chatInput) chatInput.value = "";
+        if (suggestionsContainer) suggestionsContainer.innerHTML = "";
+        if (typingIndicator) typingIndicator.style.display = "flex";
+        if (chatSendBtn) chatSendBtn.disabled = true;
+        if (chatInput) chatInput.disabled = true;
+
+        scrollToBottom();
+
+        try {
+            const response = await fetch("/api/chat/briefing", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    message: cleaned,
+                    history: history.slice(0, -1),
+                    lang: currentLang,
+                }),
+            });
+
+            const data = await response.json();
+            if (typingIndicator) typingIndicator.style.display = "none";
+
+            if (data && data.message) {
+                renderMessage("assistant", data.message);
+                history.push({ role: "assistant", content: data.message });
+
+                if (data.is_completed) {
+                    if (chatForm) chatForm.style.display = "none";
+                    if (suggestionsContainer) suggestionsContainer.style.display = "none";
+                    if (completedActions) completedActions.style.display = "flex";
+                } else {
+                    renderSuggestions(data.suggestions);
+                }
+            }
+        } catch (err) {
+            console.error("Chat message send error:", err);
+            if (typingIndicator) typingIndicator.style.display = "none";
+            renderMessage(
+                "assistant",
+                currentLang === "ru"
+                    ? "Произошла сетевая ошибка. Пожалуйста, повторите ответ."
+                    : "A network error occurred. Please try resending your answer."
+            );
+        } finally {
+            if (chatSendBtn) chatSendBtn.disabled = false;
+            if (chatInput) {
+                chatInput.disabled = false;
+                chatInput.focus();
+            }
+            scrollToBottom();
+        }
+    }
+
+    // Event Listeners
+    openBtn.addEventListener("click", openModal);
+
+    if (closeBtn) closeBtn.addEventListener("click", closeModal);
+    if (backdrop) backdrop.addEventListener("click", closeModal);
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && (chatModal.classList.contains("active") || chatModal.classList.contains("is-active"))) {
+            closeModal();
+        }
+    });
+
+    if (chatForm) {
+        chatForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const text = chatInput ? chatInput.value : "";
+            handleUserSend(text);
+        });
+    }
+
+    if (restartBtn) {
+        restartBtn.addEventListener("click", () => {
+            sessionId = "session-" + Math.random().toString(36).substring(2, 10);
+            history = [];
+            if (messagesContainer) messagesContainer.innerHTML = "";
+            if (completedActions) completedActions.style.display = "none";
+            if (chatForm) chatForm.style.display = "block";
+            fetchInitialGreeting();
         });
     }
 }

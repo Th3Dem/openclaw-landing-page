@@ -66,13 +66,18 @@
                 {{ hero.description | safe }}
             </p>
 
-            <!-- Prominent Green Hero CTA Button -->
-            <div class="hero-cta-wrap">
+            <!-- Hero Dual CTA Button Group -->
+            <div class="hero-cta-wrap hero-cta-group">
                 <button type="button" id="openLeadModalBtn" class="btn btn-primary-green btn-pulse" aria-haspopup="dialog" aria-controls="leadModal">
                     <span class="btn-glow-ring"></span>
                     <span class="btn-icon">⚡</span>
                     <span class="btn-text">{{ hero.cta_button }}</span>
                     <span class="btn-arrow">→</span>
+                </button>
+                <button type="button" id="openChatModalBtn" class="btn btn-secondary-ai" aria-haspopup="dialog" aria-controls="chatModal">
+                    <span class="btn-icon">💬</span>
+                    <span class="btn-text">{{ hero.ai_chat_button }}</span>
+                    <span class="btn-badge-ai">AI</span>
                 </button>
             </div>
 
@@ -383,7 +388,60 @@
         </div>
     </div>
 
+    <!-- Interactive AI Briefing Chat Modal Dialog -->
+    <div id="chatModal" class="modal modal-chat" role="dialog" aria-modal="true" aria-labelledby="chatModalTitle" aria-hidden="true">
+        <div class="modal-backdrop" id="chatModalBackdrop"></div>
+        <div class="modal-dialog modal-chat-dialog">
+            <button type="button" class="modal-close" id="chatModalCloseBtn" aria-label="{{ chat.close_btn_aria }}">&times;</button>
+            
+            <div class="modal-header modal-chat-header">
+                <div class="modal-badge modal-badge-cyan">{{ chat.badge }}</div>
+                <h3 class="modal-title" id="chatModalTitle">{{ chat.title }}</h3>
+                <p class="modal-subtitle">{{ chat.subtitle }}</p>
+            </div>
+
+            <!-- Chat Message Feed -->
+            <div class="chat-messages-container" id="chatMessages" role="log" aria-live="polite">
+                <!-- Messages will be injected dynamically -->
+            </div>
+
+            <!-- Animated Typing Indicator -->
+            <div class="chat-typing-indicator" id="chatTyping" style="display: none;">
+                <div class="typing-avatar">🤖</div>
+                <div class="typing-bubble">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-text">{{ chat.typing_text }}</span>
+                </div>
+            </div>
+
+            <!-- Quick Reply Suggestion Chips -->
+            <div class="chat-suggestions-container" id="chatSuggestions">
+                <!-- Suggestion chips will be injected dynamically -->
+            </div>
+
+            <!-- Chat Input Form -->
+            <form id="chatForm" class="chat-input-form">
+                <div class="chat-input-wrap">
+                    <input type="text" id="chatInput" class="chat-input" placeholder="{{ chat.input_placeholder }}" autocomplete="off" maxlength="1000">
+                    <button type="submit" id="chatSendBtn" class="btn btn-chat-send" aria-label="{{ chat.send_btn }}">
+                        <span class="btn-chat-send-icon">➤</span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Brief Summary & Actions (Displayed upon completion) -->
+            <div class="chat-completed-actions" id="chatCompletedActions" style="display: none;">
+                <div class="chat-completed-badge">{{ chat.completed_badge }}</div>
+                <button type="button" class="btn btn-secondary btn-sm" id="chatRestartBtn">
+                    {{ chat.restart_btn }}
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Interactive Script -->
-    <script src="/static/js/main.js?v=2.0.1-modal-fix"></script>
+    <script src="/static/js/main.js?v=2.1.0-ai-briefing"></script>
 </body>
 </html>

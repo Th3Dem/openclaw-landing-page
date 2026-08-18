@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 import smtplib
-from typing import Any
+from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -641,3 +641,123 @@ class TestEmailNotificationService:
             call_arg = mock_email_dispatch.call_args[0][0]
             assert call_arg["name"] == "Full Flow Lead"
             assert call_arg["contact"] == "@fullflow"
+
+
+class TestChatBriefingAPI:
+    """Unit and integration tests for AI Briefing Chat Assistant."""
+
+    def test_chat_briefing_initial_greeting_ru(self, client: TestClient) -> None:
+        """Verify initial chat start returns first question and suggestions in Russian."""
+        payload: Dict[str, Any] = {
+            "session_id": "test-session-ru-01",
+            "message": None,
+            "history": [],
+            "lang": "ru",
+        }
+        resp = client.post("/api/chat/briefing", json=payload)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["session_id"] == "test-session-ru-01"
+        assert data["step_index"] == 0
+        assert data["total_steps"] == 5
+        assert "AI-архитектор" in data["message"]
+        assert len(data["suggestions"]) > 0
+        assert data["is_completed"] is False
+
+    def test_chat_briefing_initial_greeting_en(self, client: TestClient) -> None:
+        """Verify initial chat start returns first question and suggestions in English."""
+        payload: Dict[str, Any] = {
+            "session_id": "test-session-en-01",
+            "message": None,
+            "history": [],
+            "lang": "en",
+        }
+        resp = client.post("/api/chat/briefing", json=payload)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["session_id"] == "test-session-en-01"
+        assert data["step_index"] == 0
+        assert "AI Web Architect" in data["message"]
+        assert len(data["suggestions"]) > 0
+        assert data["is_completed"] is False
+
+    def test_chat_briefing_step_progression(self, client: TestClient) -> None:
+        """Verify multi-turn progression advances step_index."""
+        # Step 1 answered
+        payload = {
+            "session_id": "test-session-prog-01",
+            "message": "SaaS Platform for Analytics",
+            "history": [
+                {"role": "assistant", "content": "Hello! What are you building?"}
+            ],
+            "lang": "en",
+        }
+        resp = client.post("/api/chat/briefing", json=payload)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["step_index"] == 1
+        assert (
+            "target audience" in data["message"].lower()
+            or "uvp" in data["message"].lower()
+        )
+        assert data["is_completed"] is False
+
+    def test_chat_briefing_full_flow_and_completion(self, client: TestClient) -> None:
+        """Verify completing all 5 steps produces finalized brief and completion badge."""
+        with patch(
+            "email_service.send_lead_notification_email", return_value=True
+        ) as mock_email:
+            history = [
+                {"role": "assistant", "content": "Step 0 Q"},
+                {"role": "user", "content": "Fintech Mobile App"},
+                {"role": "assistant", "content": "Step 1 Q"},
+                {"role": "user", "content": "Crypto Investors"},
+                {"role": "assistant", "content": "Step 2 Q"},
+                {"role": "user", "content": "Dark Cyber Minimalist"},
+                {"role": "assistant", "content": "Step 3 Q"},
+                {"role": "user", "content": "Hero + Dashboard + Pricing"},
+            ]
+            final_payload = {
+                "session_id": "test-session-complete-01",
+                "message": "Alex, @alex_crypto, alex@fintech.io",
+                "history": history,
+                "lang": "ru",
+            }
+            resp = client.post("/api/chat/briefing", json=final_payload)
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["is_completed"] is True
+            assert "brief_id" in data
+            assert data["brief_id"].startswith("brief-")
+            assert "brief_summary" in data
+            assert "ТЕХНИЧЕСКИЙ БРИФ" in data["brief_summary"]
+            assert "Fintech Mobile App" in data["brief_summary"]
+            assert "Crypto Investors" in data["brief_summary"]
+            assert mock_email.called
+
+    def test_build_brief_markdown_ru_and_en(self) -> None:
+        """Verify markdown generation formatting for both languages."""
+        from briefing_service import build_brief_markdown, sanitize_input
+
+        answers = {
+            "goals": "E-Commerce Store",
+            "audience_usp": "Fashion Buyers",
+            "visual_style": "Minimalist White",
+            "sections_features": "Catalog, Cart, Checkout",
+            "contact_info": "Elena, @elena_fashion",
+        }
+
+        md_ru = build_brief_markdown(answers, "ru")
+        assert "ТЕХНИЧЕСКИЙ БРИФ ПРОЕКТА" in md_ru
+        assert "E-Commerce Store" in md_ru
+
+        md_en = build_brief_markdown(answers, "en")
+        assert "PROJECT SPECIFICATION BRIEF" in md_en
+        assert "Fashion Buyers" in md_en
+
+        # Sanitization check
+        dirty = "  <script>alert(1)</script> Hello World  "
+        clean = sanitize_input(dirty)
+        assert "<script>" not in clean
+        assert "&lt;script&gt;" in clean
+        assert "Hello World" in clean

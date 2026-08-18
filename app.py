@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from briefing_service import process_briefing_message
+
 import datetime
 import html
 import json
@@ -50,6 +52,22 @@ TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
 # Mount static files and initialize templates
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+
+class ChatMessage(BaseModel):
+    """Model representing a single chat message."""
+
+    role: str = Field(..., max_length=20, description="Role: user or assistant")
+    content: str = Field(..., max_length=4000, description="Message text")
+
+
+class ChatBriefingRequest(BaseModel):
+    """Request model for interactive AI briefing chat."""
+
+    session_id: str = Field(default_factory=lambda: f"session-{uuid.uuid4().hex[:8]}")
+    message: Optional[str] = Field(default=None, max_length=4000)
+    history: List[ChatMessage] = Field(default_factory=list)
+    lang: str = Field(default="ru", max_length=10)
 
 
 class LeadRequest(BaseModel):
@@ -171,6 +189,7 @@ LOCALIZATION_DATA: Dict[str, Dict[str, Any]] = {
                 "and automated DevOps with zero bad commits."
             ),
             "cta_button": "Apply for AI Dev Team",
+            "ai_chat_button": "Chat with AI Architect",
             "metrics": {
                 "velocity": "10x",
                 "velocity_label": "Delivery Velocity",
@@ -560,6 +579,17 @@ LOCALIZATION_DATA: Dict[str, Dict[str, Any]] = {
                 "Strict QA Enforced",
             ],
         },
+        "chat": {
+            "badge": "AI Web Architect • Live Briefing",
+            "title": "AI Project Briefing Assistant",
+            "subtitle": "Answer a few adaptive questions to generate a production-ready brief for your website or app.",
+            "close_btn_aria": "Close Chat",
+            "input_placeholder": "Type your answer or select a suggestion below...",
+            "send_btn": "Send",
+            "typing_text": "AI Architect is typing...",
+            "restart_btn": "Start New Brief",
+            "completed_badge": "✓ Brief Completed & Dispatched",
+        },
         "modal": {
             "badge": "FAST LEAD INTAKE",
             "title": "Apply for AI Dev Team",
@@ -619,6 +649,7 @@ LOCALIZATION_DATA: Dict[str, Dict[str, Any]] = {
                 "DevOps без единого ошибочного коммита."
             ),
             "cta_button": "ПОДАТЬ ЗАЯВКУ",
+            "ai_chat_button": "Обсудить проект с AI",
             "metrics": {
                 "velocity": "10x",
                 "velocity_label": "Скорость поставки",
@@ -1009,6 +1040,17 @@ LOCALIZATION_DATA: Dict[str, Dict[str, Any]] = {
                 "Строгий контроль QA",
             ],
         },
+        "chat": {
+            "badge": "AI Web Architect • Живой бриф",
+            "title": "AI-Интервьюер: Создание брифа",
+            "subtitle": "Ответьте на несколько вопросов, чтобы сформировать точный бриф для разработки вашего сайта.",
+            "close_btn_aria": "Закрыть чат",
+            "input_placeholder": "Напишите ответ или выберите подсказку ниже...",
+            "send_btn": "Отправить",
+            "typing_text": "AI формулирует вопрос...",
+            "restart_btn": "Начать заново",
+            "completed_badge": "✓ Бриф успешно сформирован",
+        },
         "modal": {
             "badge": "БЫСТРАЯ ЗАЯВКА",
             "title": "Подать заявку на разработку",
@@ -1068,6 +1110,7 @@ def get_landing_context(lang: str = "en") -> Dict[str, Any]:
         "trust": data["trust"],
         "footer": data["footer"],
         "modal": data["modal"],
+        "chat": data["chat"],
     }
     return context
 
@@ -1122,6 +1165,23 @@ async def submit_lead_application(
             "lead_id": record["lead_id"],
         },
     )
+
+
+@app.post("/api/chat/briefing", response_class=JSONResponse)
+async def chat_briefing_endpoint(
+    request: Request, payload: ChatBriefingRequest
+) -> JSONResponse:
+    """Interactive AI briefing endpoint conducting multi-step requirement interviews."""
+    client_ip = request.client.host if request.client else "unknown"
+    history_dicts = [{"role": m.role, "content": m.content} for m in payload.history]
+    response_data = process_briefing_message(
+        session_id=payload.session_id,
+        message=payload.message,
+        history=history_dicts,
+        lang=payload.lang,
+        client_ip=client_ip,
+    )
+    return JSONResponse(status_code=200, content=response_data)
 
 
 @app.get("/health", response_class=JSONResponse)
