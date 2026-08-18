@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from briefing_service import process_briefing_message
+from briefing_service import (
+    analyze_extracted_dimensions,
+    calculate_completeness,
+    process_briefing_message,
+    synthesize_brief_markdown,
+)
 
 import datetime
 import html
@@ -66,6 +71,14 @@ class ChatBriefingRequest(BaseModel):
 
     session_id: str = Field(default_factory=lambda: f"session-{uuid.uuid4().hex[:8]}")
     message: Optional[str] = Field(default=None, max_length=4000)
+    history: List[ChatMessage] = Field(default_factory=list)
+    lang: str = Field(default="ru", max_length=10)
+
+
+class BriefSummaryRequest(BaseModel):
+    """Request model for briefing synthesis."""
+
+    session_id: str = Field(..., description="Session ID to summarize")
     history: List[ChatMessage] = Field(default_factory=list)
     lang: str = Field(default="ru", max_length=10)
 
@@ -1182,6 +1195,28 @@ async def chat_briefing_endpoint(
         client_ip=client_ip,
     )
     return JSONResponse(status_code=200, content=response_data)
+
+
+@app.post("/api/chat/brief-summary", response_class=JSONResponse)
+async def chat_brief_summary_endpoint(
+    request: Request, payload: BriefSummaryRequest
+) -> JSONResponse:
+    """Synthesize and return a structured technical specification from session history."""
+    history_dicts = [{"role": m.role, "content": m.content} for m in payload.history]
+    extracted = analyze_extracted_dimensions(history_dicts)
+    completeness, missing = calculate_completeness(extracted)
+    brief_md = synthesize_brief_markdown(extracted, payload.lang)
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "session_id": payload.session_id,
+            "completeness": completeness,
+            "missing_dimensions": missing,
+            "extracted_dimensions": extracted,
+            "brief_markdown": brief_md,
+        },
+    )
 
 
 @app.get("/health", response_class=JSONResponse)

@@ -273,7 +273,7 @@ function initLeadModal() {
 }
 
 /**
- * Initialize Interactive AI Briefing Chat Modal & State Machine.
+ * Initialize Autonomous AI Briefing Chat Modal & State Machine.
  */
 function initChatModal() {
     const chatModal = document.getElementById("chatModal");
@@ -288,6 +288,11 @@ function initChatModal() {
     const chatSendBtn = document.getElementById("chatSendBtn");
     const completedActions = document.getElementById("chatCompletedActions");
     const restartBtn = document.getElementById("chatRestartBtn");
+    const viewBriefBtn = document.getElementById("chatViewBriefBtn");
+    const briefCard = document.getElementById("chatBriefCard");
+    const briefContent = document.getElementById("chatBriefContent");
+    const progressBar = document.getElementById("chatProgressBar");
+    const progressText = document.getElementById("chatProgressText");
 
     if (!chatModal || !openBtn) {
         return;
@@ -297,6 +302,13 @@ function initChatModal() {
     let sessionId = "session-" + Math.random().toString(36).substring(2, 10);
     let history = [];
     let isInitialized = false;
+    let currentBriefSummary = "";
+
+    function updateProgress(score) {
+        const val = Math.min(Math.max(score || 10, 10), 100);
+        if (progressBar) progressBar.style.width = val + "%";
+        if (progressText) progressText.textContent = val + "%";
+    }
 
     function openModal() {
         chatModal.classList.add("active", "is-active");
@@ -372,6 +384,7 @@ function initChatModal() {
 
     async function fetchInitialGreeting() {
         if (typingIndicator) typingIndicator.style.display = "flex";
+        updateProgress(10);
         scrollToBottom();
 
         try {
@@ -393,6 +406,7 @@ function initChatModal() {
                 renderMessage("assistant", data.message);
                 history.push({ role: "assistant", content: data.message });
                 renderSuggestions(data.suggestions);
+                if (data.completeness !== undefined) updateProgress(data.completeness);
             }
         } catch (err) {
             console.error("Chat briefing initialization error:", err);
@@ -400,8 +414,8 @@ function initChatModal() {
             renderMessage(
                 "assistant",
                 currentLang === "ru"
-                    ? "Здравствуйте! Готов обсудить ваш проект. Какой продукт вы хотите разработать?"
-                    : "Hello! Ready to discuss your project. What product would you like to build?"
+                    ? "Здравствуйте! Я AI-архитектор OpenClaw. Какой продукт или сайт вы хотите разработать?"
+                    : "Hello! I am OpenClaw's AI Architect. What product or website would you like to build?"
             );
         }
     }
@@ -441,10 +455,17 @@ function initChatModal() {
                 renderMessage("assistant", data.message);
                 history.push({ role: "assistant", content: data.message });
 
+                if (data.completeness !== undefined) {
+                    updateProgress(data.completeness);
+                }
+
                 if (data.is_completed) {
+                    currentBriefSummary = data.brief_summary || "";
                     if (chatForm) chatForm.style.display = "none";
                     if (suggestionsContainer) suggestionsContainer.style.display = "none";
                     if (completedActions) completedActions.style.display = "flex";
+                    if (briefContent) briefContent.textContent = currentBriefSummary;
+                    updateProgress(100);
                 } else {
                     renderSuggestions(data.suggestions);
                 }
@@ -488,12 +509,26 @@ function initChatModal() {
         });
     }
 
+    if (viewBriefBtn) {
+        viewBriefBtn.addEventListener("click", () => {
+            if (briefCard) {
+                const isHidden = briefCard.style.display === "none";
+                briefCard.style.display = isHidden ? "block" : "none";
+                if (isHidden) {
+                    briefCard.scrollIntoView({ behavior: "smooth" });
+                }
+            }
+        });
+    }
+
     if (restartBtn) {
         restartBtn.addEventListener("click", () => {
             sessionId = "session-" + Math.random().toString(36).substring(2, 10);
             history = [];
+            currentBriefSummary = "";
             if (messagesContainer) messagesContainer.innerHTML = "";
             if (completedActions) completedActions.style.display = "none";
+            if (briefCard) briefCard.style.display = "none";
             if (chatForm) chatForm.style.display = "block";
             fetchInitialGreeting();
         });

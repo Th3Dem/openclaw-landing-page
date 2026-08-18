@@ -395,14 +395,32 @@
             <button type="button" class="modal-close" id="chatModalCloseBtn" aria-label="{{ chat.close_btn_aria }}">&times;</button>
             
             <div class="modal-header modal-chat-header">
-                <div class="modal-badge modal-badge-cyan">{{ chat.badge }}</div>
+                <div class="modal-header-top">
+                    <div class="modal-badge modal-badge-cyan">{{ chat.badge }}</div>
+                    <div class="chat-progress-badge">
+                        <span class="progress-dot"></span>
+                        <span id="chatProgressText">10%</span>
+                    </div>
+                </div>
                 <h3 class="modal-title" id="chatModalTitle">{{ chat.title }}</h3>
                 <p class="modal-subtitle">{{ chat.subtitle }}</p>
+                <div class="chat-progress-track">
+                    <div class="chat-progress-bar" id="chatProgressBar" style="width: 10%;"></div>
+                </div>
             </div>
 
             <!-- Chat Message Feed -->
             <div class="chat-messages-container" id="chatMessages" role="log" aria-live="polite">
                 <!-- Messages will be injected dynamically -->
+            </div>
+
+            <!-- Live Brief Synthesis Preview Card -->
+            <div class="chat-brief-card" id="chatBriefCard" style="display: none;">
+                <div class="chat-brief-card-header">
+                    <span class="chat-brief-icon">📋</span>
+                    <span class="chat-brief-title">Спецификация проекта (Синтез)</span>
+                </div>
+                <pre class="chat-brief-content" id="chatBriefContent"></pre>
             </div>
 
             <!-- Animated Typing Indicator -->
@@ -434,14 +452,19 @@
             <!-- Brief Summary & Actions (Displayed upon completion) -->
             <div class="chat-completed-actions" id="chatCompletedActions" style="display: none;">
                 <div class="chat-completed-badge">{{ chat.completed_badge }}</div>
-                <button type="button" class="btn btn-secondary btn-sm" id="chatRestartBtn">
-                    {{ chat.restart_btn }}
-                </button>
+                <div class="chat-action-btns">
+                    <button type="button" class="btn btn-secondary btn-sm" id="chatViewBriefBtn">
+                        📋 Посмотреть бриф
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="chatRestartBtn">
+                        {{ chat.restart_btn }}
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Interactive Script -->
-    <script src="/static/js/main.js?v=2.1.0-ai-briefing"></script>
+    <script src="/static/js/main.js?v=2.2.0-ai-intelligence"></script>
 </body>
 </html>
