@@ -1101,6 +1101,8 @@ def generate_autonomous_response(
 
     # 5. Deep Contextual Reasoning & Free-Form Organic Conversation Engine
     msg_low = last_user_msg.lower()
+    niche_name, niche_info = detect_niche(all_text, is_ru)
+    first_user_goal = user_turns[0]
 
     # Check if user explicitly requests completion
     user_requests_completion = any(
@@ -1268,7 +1270,7 @@ def generate_autonomous_response(
         reply = (
             "По дизайну сейчас отлично работают два направления: глубокий обсидиановый"
             " минимализм со светящимися неоновыми акцентами (стиль Helias — идеален для IT и премиум)"
-            " или чистая светлая премиум-эстетика в духе Apple. Какое визуальное ощущение"
+            " или чистая светлая премиум-эстетика в духе Apple. Какая визуальная атмосфера"
             " ближе вашему бренду, и есть ли сайты-референсы, которые вам нравятся?"
             if is_ru
             else (
@@ -1419,17 +1421,170 @@ def generate_autonomous_response(
             "brief_summary": None,
         }
 
-    # If contact is still missing, we gently probe for contact details while summarizing
-    if not has_valid_contact_val:
+    # PROGRESSIVE MULTI-PILLAR DEEP DISCOVERY (Only ask contact after all 4 pillars are covered):
+    if turn_count == 1 or "goals" in missing_dims:
+        niche_insight = niche_info["insights"] if niche_info else ""
         reply = (
-            "Отлично, картина по проекту становится четкой и целостной! Подскажите ваше имя"
-            " и контактные данные (Telegram @username, email или телефон) — чтобы мы могли"
-            " подготовить детальный расчет сметы и архитектурное ТЗ."
+            f"Отличное направление («{first_user_goal}»)! {niche_insight}\n\n"
+            "Чтобы спроектировать сильное позиционирование: кто ваши ключевые клиенты"
+            " (B2B компании, розница, премиум-сегмент) и какое главное преимущество (УТП)"
+            " важно выделить на первом экране?"
             if is_ru
             else (
-                "Great, project vision is shaping up clearly! Please provide your name"
-                " and contact handle (Telegram @username, Email, or Phone) so we can"
-                " synthesize the technical specification and project estimate."
+                f"Great niche concept ('{first_user_goal}')! {niche_insight}\n\n"
+                "To engineer high-converting positioning: who is your core target audience"
+                " (B2B enterprise, retail, premium) and what primary value proposition (USP)"
+                " should we highlight on the hero fold?"
+            )
+        )
+        chips = (
+            [
+                "B2B клиенты и оптовые заказчики",
+                "Розничные покупатели (B2C)",
+                "Премиальный VIP-сегмент",
+                "Быстрая доставка и качество",
+            ]
+            if is_ru
+            else [
+                "B2B Enterprise & Mid-Market",
+                "Direct-to-Consumer (B2C)",
+                "High-Ticket Premium Segment",
+                "Fast Turnaround & Quality",
+            ]
+        )
+        return {
+            "session_id": session_id,
+            "message": reply,
+            "suggestions": chips,
+            "completeness": 35,
+            "is_completed": False,
+            "extracted_dimensions": extracted,
+            "brief_summary": None,
+        }
+
+    if "structure" in missing_dims:
+        reply = (
+            "Позиционирование и аудитория понятны! Теперь определим структуру страницы."
+            " Какие смысловые блоки критически важно показать: сильный Hero с УТП,"
+            " интерактивный конфигуратор/квиз, блок кейсов и отзывов или прозрачные тарифы?"
+            if is_ru
+            else (
+                "Audience and positioning noted! Now let's establish the page structure."
+                " Which core sections are essential: high-impact Hero, interactive quiz,"
+                " case studies & proof matrix, or pricing tiers?"
+            )
+        )
+        chips = (
+            [
+                "Hero + Кейсы + Тарифы + Заявка",
+                "Интерактивный квиз-калькулятор",
+                "Демонстрация продукта + FAQ",
+                "Лид-магнит с мгновенным доступом",
+            ]
+            if is_ru
+            else [
+                "Hero + Proof + Pricing + Form",
+                "Interactive Quiz Estimator",
+                "Product Demo + FAQ Matrix",
+                "Lead Magnet Instant Flow",
+            ]
+        )
+        return {
+            "session_id": session_id,
+            "message": reply,
+            "suggestions": chips,
+            "completeness": 55,
+            "is_completed": False,
+            "extracted_dimensions": extracted,
+            "brief_summary": None,
+        }
+
+    if "style" in missing_dims:
+        reply = (
+            "Структура определена! Теперь выберем визуальную атмосферу бренда."
+            " Какая эстетика вам ближе: глубокий обсидиановый минимализм со"
+            " светящимися неоновыми акцентами (как Helias), чистый светлый"
+            " премиум-стиль (Apple) или технологичный Glassmorphism?"
+            if is_ru
+            else (
+                "Section structure is clear! Now let's define the visual brand identity."
+                " What aesthetic resonates with you: obsidian dark neon minimalism (Helias),"
+                " clean light minimalist (Apple), or cyber glassmorphism?"
+            )
+        )
+        chips = (
+            [
+                "Темный неоновый минимализм (Helias)",
+                "Светлый чистый премиум (Apple)",
+                "Стеклянный Glassmorphism с анимацией",
+                "Строгий корпоративный стиль",
+            ]
+            if is_ru
+            else [
+                "Obsidian Dark Neon (Helias)",
+                "Clean Light Minimalist (Apple)",
+                "Cyber Glassmorphism FX",
+                "High-Trust Corporate",
+            ]
+        )
+        return {
+            "session_id": session_id,
+            "message": reply,
+            "suggestions": chips,
+            "completeness": 70,
+            "is_completed": False,
+            "extracted_dimensions": extracted,
+            "brief_summary": None,
+        }
+
+    if "features" in missing_dims:
+        reply = (
+            "Стиль зафиксирован! Какие технические модули и каналы обработки заявок"
+            " потребуются: мгновенные оповещения в Telegram-чат вашей команды,"
+            " онлайн-оплата (карты/СБП), CRM (AmoCRM/Bitrix24) или мультиязычность?"
+            if is_ru
+            else (
+                "Style preference recorded! What technical integrations are required:"
+                " instant Telegram alerts, online checkout (Stripe/Card), CRM sync"
+                " (AmoCRM/Bitrix24), or bilingual localization?"
+            )
+        )
+        chips = (
+            [
+                "Telegram-оповещения + Email + CRM",
+                "Онлайн-оплата + Авто-расчет цены",
+                "Двуязычная локализация (RU / ENG)",
+                "Интерактивный AI-консультант на сайте",
+            ]
+            if is_ru
+            else [
+                "Telegram Alerts + Email + CRM",
+                "Online Checkout & Pricing Tool",
+                "Multilingual Support (EN / RU)",
+                "Interactive AI Assistant Widget",
+            ]
+        )
+        return {
+            "session_id": session_id,
+            "message": reply,
+            "suggestions": chips,
+            "completeness": 85,
+            "is_completed": False,
+            "extracted_dimensions": extracted,
+            "brief_summary": None,
+        }
+
+    # ONLY WHEN all 4 core dimensions are filled and contact is still missing:
+    if not has_valid_contact_val:
+        reply = (
+            "Отлично, концепция, структура, дизайн и функционал полностью проработаны! Пожалуйста,"
+            " укажите ваше имя и контакт для связи (Telegram @username, email или телефон) — я"
+            " сформирую итоговое ТЗ и передам его архитектору для расчета точной сметы."
+            if is_ru
+            else (
+                "Excellent! Core concept, page structure, visual aesthetics, and integrations"
+                " are fully defined. Please provide your name and contact handle (Telegram @username,"
+                " Email, or Phone) so I can record the final specification and dispatch it for estimation."
             )
         )
         chips = (
@@ -1451,20 +1606,20 @@ def generate_autonomous_response(
             "session_id": session_id,
             "message": reply,
             "suggestions": chips,
-            "completeness": min(90, max(75, verified_score)),
+            "completeness": 90,
             "is_completed": False,
             "extracted_dimensions": extracted,
             "brief_summary": None,
         }
 
-    # If all dimensions & contact are available, provide conversational checkpoint:
+    # If everything is filled including contact:
     reply = (
-        "Мы собрали ключевые требования: цели, структуру, дизайн, функционал и контакты."
+        "Все ключевые требования сформированы: цели, структура, дизайн, функционал и контакты."
         " Вы хотите зафиксировать итоговое ТЗ и получить расчет сметы от инженера, или"
         " обсудим дополнительные идеи и пожелания?"
         if is_ru
         else (
-            "We have gathered all core specifications: goals, architecture, design, features, and contacts."
+            "All specifications are in place: goals, architecture, design, features, and contacts."
             " Would you like to finalize the Technical Specification and get the engineering estimate,"
             " or explore additional features?"
         )
@@ -1488,7 +1643,7 @@ def generate_autonomous_response(
         "session_id": session_id,
         "message": reply,
         "suggestions": chips,
-        "completeness": min(95, max(85, verified_score)),
+        "completeness": 95,
         "is_completed": False,
         "extracted_dimensions": extracted,
         "brief_summary": None,
