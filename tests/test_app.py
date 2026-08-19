@@ -835,3 +835,21 @@ class TestChatBriefingAPI:
         data = resp.json()
         assert data["is_completed"] is False
         assert data["completeness"] <= 20
+
+    def test_sqlite_session_persistence(self, client: TestClient) -> None:
+        """Verify messages and sessions are persisted to SQLite."""
+        import uuid
+        from briefing_service import get_persisted_session_history
+
+        session_id = f"test-sqlite-{uuid.uuid4().hex[:6]}"
+        payload: Dict[str, Any] = {
+            "session_id": session_id,
+            "message": "Fintech Platform for Payments",
+            "history": [],
+            "lang": "ru",
+        }
+        resp = client.post("/api/chat/briefing", json=payload)
+        assert resp.status_code == 200
+        saved_history = get_persisted_session_history(session_id)
+        assert len(saved_history) >= 2
+        assert any("Fintech Platform" in m["content"] for m in saved_history)

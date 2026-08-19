@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import re
+import sqlite3
 import urllib.error
 import urllib.request
 import uuid
@@ -23,9 +24,96 @@ from typing import Any, Dict, List, Optional, Tuple
 logger = logging.getLogger("openclaw.briefing")
 
 BRIEFS_FILE = Path(__file__).resolve().parent / "briefs.json"
+DB_FILE = Path(__file__).resolve().parent / "sessions.db"
 
 # Core Dimension Keys required for production-ready brief
 DIMENSIONS = ["goals", "structure", "style", "features", "contact"]
+
+
+def init_sqlite_db() -> None:
+    """Initialize SQLite database for persistent session memory."""
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS chat_sessions (
+                    session_id TEXT PRIMARY KEY,
+                    language TEXT,
+                    created_at TEXT,
+                    updated_at TEXT,
+                    completeness INTEGER DEFAULT 10,
+                    is_completed INTEGER DEFAULT 0,
+                    brief_id TEXT,
+                    brief_markdown TEXT
+                )
+                """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS chat_messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT,
+                    role TEXT,
+                    content TEXT,
+                    created_at TEXT,
+                    FOREIGN KEY(session_id) REFERENCES chat_sessions(session_id)
+                )
+                """)
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id)"
+            )
+            conn.commit()
+    except Exception as err:
+        logger.error("Failed to initialize SQLite DB: %s", err)
+
+
+def persist_chat_message(
+    session_id: str, role: str, content: str, lang: str = "ru"
+) -> None:
+    """Persist message in SQLite session memory."""
+    try:
+        now_str = datetime.now(timezone.utc).isoformat()
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO chat_sessions (session_id, language, created_at, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(session_id) DO UPDATE SET updated_at = ?
+                """,
+                (session_id, lang, now_str, now_str, now_str),
+            )
+            cursor.execute(
+                """
+                INSERT INTO chat_messages (session_id, role, content, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (session_id, role, content, now_str),
+            )
+            conn.commit()
+    except Exception as err:
+        logger.warning("Could not persist message to SQLite: %s", err)
+
+
+def get_persisted_session_history(session_id: str) -> List[Dict[str, str]]:
+    """Retrieve full chronological conversation history from SQLite."""
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT role, content FROM chat_messages
+                WHERE session_id = ?
+                ORDER BY id ASC
+                """,
+                (session_id,),
+            )
+            rows = cursor.fetchall()
+            return [{"role": r[0], "content": r[1]} for r in rows]
+    except Exception as err:
+        logger.warning("Could not retrieve session from SQLite: %s", err)
+        return []
+
+
+init_sqlite_db()
 
 SYSTEM_PROMPT_RU = """Role & Persona:
 Ты — Senior Web Solutions Consultant и Главный Технический Аналитик (Web Architect) студии OpenClaw AI Dev Studio. Твоя единственная цель — собрать исчерпывающие требования от потенциального клиента для составления полноценного Технического Задания (ТЗ) на разработку конверсионного сайта или веб-продукта.
@@ -1258,11 +1346,19 @@ def process_briefing_message(
     lang: str = "ru",
     client_ip: str = "127.0.0.1",
 ) -> Dict[str, Any]:
-    """Entry point for processing chat briefing turns."""
-    return generate_autonomous_response(
+    """Entry point for processing chat briefing turns with SQLite session persistence."""
+    if message and message.strip():
+        persist_chat_message(session_id, "user", message.strip(), lang)
+
+    res = generate_autonomous_response(
         session_id=session_id,
         message=message,
         history=history,
         lang=lang,
         client_ip=client_ip,
     )
+
+    if res.get("message"):
+        persist_chat_message(session_id, "assistant", res["message"], lang)
+
+    return res

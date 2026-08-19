@@ -1,6 +1,7 @@
 # Sensitive lead data & runtime storage
 leads.json
 *.json
+*.db
 
 # Internal Agent Handover & QA reports
 *_HANDOVER.md
