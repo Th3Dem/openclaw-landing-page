@@ -477,8 +477,14 @@ def is_vague_or_gibberish(text: str) -> bool:
         "любой",
         "сделайте красиво",
         "просто сайт",
+        "мне просто сайт",
+        "сделай сам",
+        "сделайте сами",
+        "сам делай",
+        "сам сделай",
         "красиво",
         "хз вообще",
+        "без понятия",
         "ладно",
         "ок",
         "норм",
@@ -487,6 +493,7 @@ def is_vague_or_gibberish(text: str) -> bool:
         "anything",
         "just a site",
         "make it cool",
+        "do it yourself",
         "idk really",
         "dont know",
         "don't know",
@@ -570,17 +577,45 @@ def call_llm_if_available(
     load_env()
     gemini_key = os.environ.get("GEMINI_API_KEY")
     if gemini_key:
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={gemini_key}"
-            contents = []
-            for msg in history:
-                role = "user" if msg.get("role") == "user" else "model"
-                text = msg.get("content", "").strip()
-                if text:
-                    contents.append({"role": role, "parts": [{"text": text}]})
-            contents.append({"role": "user", "parts": [{"text": user_message}]})
+        raw_turns: List[Dict[str, str]] = []
+        for msg in history:
+            r = "user" if msg.get("role") == "user" else "model"
+            t = msg.get("content", "").strip()
+            if t:
+                raw_turns.append({"role": r, "text": t})
+        if user_message and user_message.strip():
+            raw_turns.append({"role": "user", "text": user_message.strip()})
 
-            payload = {
+        # Gemini requires the conversation to start with a user turn
+        while raw_turns and raw_turns[0]["role"] != "user":
+            raw_turns.pop(0)
+
+        if not raw_turns:
+            raw_turns.append(
+                {"role": "user", "text": user_message.strip() or "Здравствуйте"}
+            )
+
+        # Merge consecutive identical roles to guarantee strict alternating user/model
+        merged_turns: List[Dict[str, str]] = []
+        for turn in raw_turns:
+            if merged_turns and merged_turns[-1]["role"] == turn["role"]:
+                merged_turns[-1]["text"] += "\n" + turn["text"]
+            else:
+                merged_turns.append({"role": turn["role"], "text": turn["text"]})
+
+        contents = [
+            {"role": turn["role"], "parts": [{"text": turn["text"]}]}
+            for turn in merged_turns
+        ]
+
+        first_user_text = (
+            merged_turns[0]["text"]
+            if merged_turns
+            else (user_message.strip() or "Здравствуйте")
+        )
+        configs = [
+            # Config 1: System instruction + JSON response MIME type
+            {
                 "system_instruction": {"parts": [{"text": system_prompt}]},
                 "contents": contents,
                 "generationConfig": {
@@ -588,29 +623,72 @@ def call_llm_if_available(
                     "temperature": 0.7,
                     "maxOutputTokens": 800,
                 },
-            }
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=12) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                if "candidates" in data and len(data["candidates"]) > 0:
-                    candidate = data["candidates"][0]
-                    parts = candidate.get("content", {}).get("parts", [])
-                    if parts:
-                        answer = str(parts[0].get("text", "")).strip()
-                        parsed = parse_llm_json_response(answer)
-                        if parsed:
-                            logger.info(
-                                "Successfully generated structured response with Gemini JSON mode"
-                            )
-                            return parsed
-                        return {"reply": answer, "suggestions": []}
-        except Exception as gem_err:
-            logger.warning("Google Gemini API call failed: %s", gem_err)
+            },
+            # Config 2: System prompt embedded in first user turn if system_instruction is rejected
+            {
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [
+                            {
+                                "text": f"{system_prompt}\n\n[USER INSTRUCTION]:\n{first_user_text}"
+                            }
+                        ],
+                    }
+                ]
+                + contents[1:],
+                "generationConfig": {
+                    "temperature": 0.7,
+                    "maxOutputTokens": 800,
+                },
+            },
+        ]
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={gemini_key}"
+        import time
+
+        for attempt, payload in enumerate(configs):
+            for retry in range(2):
+                try:
+                    req = urllib.request.Request(
+                        url,
+                        data=json.dumps(payload).encode("utf-8"),
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(req, timeout=20) as resp:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        if "candidates" in data and len(data["candidates"]) > 0:
+                            candidate = data["candidates"][0]
+                            parts = candidate.get("content", {}).get("parts", [])
+                            if parts:
+                                answer = str(parts[0].get("text", "")).strip()
+                                parsed = parse_llm_json_response(answer)
+                                if parsed:
+                                    logger.info(
+                                        "Successfully generated structured response with Gemini LLM"
+                                    )
+                                    return parsed
+                                return {"reply": answer, "suggestions": []}
+                except urllib.error.HTTPError as http_err:
+                    logger.warning(
+                        "Gemini HTTP attempt %d retry %d returned: %s",
+                        attempt + 1,
+                        retry + 1,
+                        http_err,
+                    )
+                    if http_err.code in (503, 500, 429):
+                        time.sleep(1.0)
+                    else:
+                        break
+                except Exception as gem_err:
+                    logger.warning(
+                        "Gemini call attempt %d retry %d failed: %s",
+                        attempt + 1,
+                        retry + 1,
+                        gem_err,
+                    )
+                    time.sleep(0.8)
 
     api_key = (
         os.environ.get("OPENROUTER_API_KEY")
@@ -1021,16 +1099,40 @@ def generate_autonomous_response(
             "brief_summary": brief_md,
         }
 
-    # 5. Deep Niche Analysis & Continuous Semantic Fallback Engine
-    niche_name, niche_info = detect_niche(all_text, is_ru)
-    first_user_goal = user_turns[0]
+    # 5. Deep Contextual Reasoning & Free-Form Organic Conversation Engine
+    msg_low = last_user_msg.lower()
 
-    # Check if all dimensions are verified and valid contact provided
-    if (
+    # Check if user explicitly requests completion
+    user_requests_completion = any(
+        k in msg_low
+        for k in [
+            "зафиксировать",
+            "оформляй",
+            "формируй тз",
+            "согласен",
+            "отправляй",
+            "готово",
+            "готов",
+            "давай тз",
+            "сформируй бриф",
+            "finalize",
+            "complete brief",
+            "submit brief",
+        ]
+    )
+
+    can_complete = (
         verified_score >= 95
         and has_valid_contact_val
         and not is_vague_or_gibberish(last_user_msg)
-    ):
+    ) or (
+        user_requests_completion
+        and verified_score >= 80
+        and has_valid_contact_val
+        and not is_vague_or_gibberish(last_user_msg)
+    )
+
+    if can_complete:
         brief_id = f"brief-{uuid.uuid4().hex[:8]}"
         brief_md = synthesize_brief_markdown(extracted, lang)
         created_at = datetime.now(timezone.utc).isoformat()
@@ -1062,16 +1164,15 @@ def generate_autonomous_response(
             logger.warning("Could not dispatch brief email: %s", email_err)
 
         completion_msg = (
-            f"🎯 Готово! Ваш технический бриф (ID: {brief_id}) успешно синтезирован"
-            " и направлен архитектору OpenClaw. Нажмите кнопку «📋 Посмотреть бриф»"
-            " ниже, чтобы ознакомиться с полной спецификацией. Мы свяжемся с вами"
-            " в течение рабочего дня с готовой оценкой!"
+            f"🎯 Готово! Ваше Техническое Задание (ID: {brief_id}) успешно сформировано"
+            " и направлено архитектору OpenClaw. Нажмите кнопку «📋 Посмотреть ТЗ»"
+            " или «💾 Скачать ТЗ», чтобы ознакомиться со спецификацией. Мы свяжемся с вами"
+            " для презентации проекта и сметы!"
             if is_ru
             else (
-                f"🎯 Done! Your technical specification brief (ID: {brief_id}) has"
+                f"🎯 Done! Your Technical Specification (ID: {brief_id}) has"
                 " been synthesized and delivered to OpenClaw Lead Architect. Click"
-                " '📋 View Brief' below to inspect the full specification. We will"
-                " reach out shortly with the development timeline and pricing!"
+                " '📋 View ТЗ' or '💾 Download ТЗ' below to inspect the full specification."
             )
         )
         return {
@@ -1085,167 +1186,309 @@ def generate_autonomous_response(
             "extracted_dimensions": extracted,
         }
 
-    # If not completed, dynamically ask for the next missing dimension:
-    if "structure" in missing_dims or "structure" not in extracted:
-        if niche_info:
-            reply = (
-                f"Отличная ниша («{first_user_goal}»)! {niche_info['insights']}\n\n"
-                "Для максимальной конверсии я рекомендую внедрить такие решения: "
-                f"{', '.join(niche_info['features'])}.\n\n"
-                f"{niche_info['next_q']}"
-                if is_ru
-                else (
-                    f"Great niche concept ('{first_user_goal}')!"
-                    f" {niche_info['insights']}\n\nTo maximize conversions, I"
-                    " recommend architectural highlights:"
-                    f" {', '.join(niche_info['features'])}.\n\n{niche_info['next_q']}"
-                )
-            )
-            chips = niche_info["chips"]
-        else:
-            reply = (
-                f"Принято, идея «{first_user_goal}» звучит перспективно! "
-                "Чтобы спроектировать правильный путь клиента, какие ключевые смысловые"
-                " блоки важно показать на странице? (Hero с оффером, калькулятор/квиз,"
-                " кейсы, тарифы, отзывы?)"
-                if is_ru
-                else (
-                    f"Understood, '{first_user_goal}' is a solid concept!"
-                    " To engineer an optimal page flow, what core sections are essential?"
-                    " (Hero CTA, Calculator/Quiz, Case Studies, Pricing, Proof Matrix?)"
-                )
-            )
-            chips = (
-                [
-                    "Hero + Кейсы + Тарифы + Заявка",
-                    "Интерактивный калькулятор стоимости",
-                    "Демонстрация продукта + Отзывы + FAQ",
-                    "Лид-магнит с мгновенным доступом",
-                ]
-                if is_ru
-                else [
-                    "Hero + Cases + Pricing + Form",
-                    "Interactive Pricing Estimator",
-                    "Product Demo + Proof + FAQ",
-                    "Lead Magnet Quiz Flow",
-                ]
-            )
-        return {
-            "session_id": session_id,
-            "message": reply,
-            "suggestions": chips,
-            "completeness": max(20, verified_score),
-            "is_completed": False,
-            "extracted_dimensions": extracted,
-            "brief_summary": None,
-        }
-
-    if "style" in missing_dims or "style" not in extracted:
+    # Intent 1: Pricing, Budget, Timeline & Speed
+    if any(
+        k in msg_low
+        for k in [
+            "цен",
+            "стоим",
+            "сколько",
+            "срок",
+            "бюджет",
+            "быстро",
+            "скорост",
+            "price",
+            "cost",
+            "timeline",
+            "budget",
+            "how much",
+            "how long",
+            "deadline",
+        ]
+    ):
         reply = (
-            "Структура определена! Теперь выберем визуальную атмосферу бренда."
-            " Какая эстетика вам ближе: глубокий обсидиановый минимализм со"
-            " светящимися неоновыми акцентами (как Helias), чистый просторный"
-            " Apple-стиль или высокотехнологичный Glassmorphism?"
+            "Благодаря нашей мультиагентной архитектуре разработка идет со скоростью x10:"
+            " рабочий прототип и MVP мы собираем за 3–5 рабочих дней. Стоимость зависит от объема"
+            " кастомных модулей (калькуляторы, платежные шлюзы, интеграции с CRM/Telegram)."
+            " Есть ли у вас конкретные дедлайны по запуску или пожелания по бюджетным ориентирам?"
             if is_ru
             else (
-                "Section blueprint is clear! Now let's establish the visual brand identity."
-                " What aesthetic do you envision: obsidian dark minimalism with"
-                " neon accents (Helias aesthetic), clean spacious Apple-like style,"
-                " or cyber glassmorphism?"
+                "With our autonomous multi-agent engineering, we deliver with 10x velocity:"
+                " working MVP is ready in 3-5 business days. Pricing depends on bespoke modules"
+                " (dynamic calculators, checkout gateways, CRM/Telegram sync)."
+                " Do you have a strict launch deadline or specific budget range in mind?"
             )
         )
         chips = (
             [
-                "Темный минимализм со свечением (Helias)",
-                "Светлый лаконичный стиль (Apple)",
-                "Студийный Glassmorphism с анимацией",
-                "Премиальный строгий корпоративный",
+                "Запуск за 1-2 недели",
+                "Нужен расчет точной сметы",
+                "Хочу минимальный MVP",
+                "Обсудить стек и архитектуру",
             ]
             if is_ru
             else [
-                "Obsidian Dark Minimalist (Helias style)",
-                "Clean Spacious Light (Apple style)",
-                "Cyber Glassmorphism with Smooth FX",
-                "High-Trust Corporate Editorial",
+                "Launch within 1-2 weeks",
+                "Need exact budget quote",
+                "Lean MVP launch first",
+                "Discuss tech stack & architecture",
             ]
         )
         return {
             "session_id": session_id,
             "message": reply,
             "suggestions": chips,
-            "completeness": max(45, verified_score),
+            "completeness": min(95, max(30, verified_score)),
             "is_completed": False,
             "extracted_dimensions": extracted,
             "brief_summary": None,
         }
 
-    if "features" in missing_dims or "features" not in extracted:
+    # Intent 2: Visual Style, Design Aesthetics, References & Colors
+    if any(
+        k in msg_low
+        for k in [
+            "дизайн",
+            "стил",
+            "цвет",
+            "темн",
+            "светл",
+            "палитр",
+            "шрифт",
+            "референс",
+            "красив",
+            "aesthetic",
+            "design",
+            "dark",
+            "light",
+            "font",
+            "color",
+        ]
+    ):
         reply = (
-            "Стиль зафиксирован! Какие технические интеграции и каналы обработки заявок"
-            " потребуются? Например: мгновенные оповещения в Telegram-чат вашей"
-            " команды, онлайн-оплата (карты/СБП), CRM (AmoCRM/Bitrix24) или мультиязычность?"
+            "По дизайну сейчас отлично работают два направления: глубокий обсидиановый"
+            " минимализм со светящимися неоновыми акцентами (стиль Helias — идеален для IT и премиум)"
+            " или чистая светлая премиум-эстетика в духе Apple. Какое визуальное ощущение"
+            " ближе вашему бренду, и есть ли сайты-референсы, которые вам нравятся?"
             if is_ru
             else (
-                "Design style noted! What technical integrations are required?"
-                " For example: instant Telegram alerts, online checkout, CRM sync,"
-                " or bilingual (RU/EN) localization?"
+                "Design-wise, two primary trends drive peak engagement: deep obsidian dark"
+                " minimalism with glowing neon accents (Helias aesthetic — ideal for tech & luxury)"
+                " versus crisp spacious light minimalism (Apple aesthetic)."
+                " Which visual atmosphere better resonates with your brand identity?"
             )
         )
         chips = (
             [
-                "Telegram-оповещения + Email + CRM",
-                "Онлайн-оплата + Авто-расчет цены",
-                "Двуязычная локализация (RU / ENG)",
-                "Интерактивный AI-консультант на сайте",
+                "Темный неоновый минимализм (Helias)",
+                "Светлый чистый премиум (Apple)",
+                "Стеклянный Glassmorphism с анимацией",
+                "Строгий корпоративный стиль",
             ]
             if is_ru
             else [
-                "Instant Telegram & Email Dispatch + CRM",
-                "Online Checkout & Dynamic Calculator",
-                "Full Bilingual (RU / EN) Support",
-                "Interactive AI Chat Assistant Widget",
+                "Obsidian Dark Neon (Helias)",
+                "Clean Light Minimalist (Apple)",
+                "Cyber Glassmorphism FX",
+                "High-Trust Corporate",
             ]
         )
         return {
             "session_id": session_id,
             "message": reply,
             "suggestions": chips,
-            "completeness": max(70, verified_score),
+            "completeness": min(95, max(50, verified_score)),
             "is_completed": False,
             "extracted_dimensions": extracted,
             "brief_summary": None,
         }
 
-    # If only contact is missing or invalid:
+    # Intent 3: Features, Quizzes, Calculators, Payments & Integrations
+    if any(
+        k in msg_low
+        for k in [
+            "квиз",
+            "калькулятор",
+            "оплат",
+            "интеграц",
+            "telegram",
+            "crm",
+            "бот",
+            "уведомлен",
+            "amo",
+            "bitrix",
+            "feature",
+            "quiz",
+            "payment",
+        ]
+    ):
+        reply = (
+            "Интерактивный квиз или калькулятор стоимости вовлекает посетителя и дает"
+            " рост конверсии до +35-40%! Данные моментально направляются в Telegram вашей команды"
+            " и в CRM (AmoCRM, Bitrix24), а оплата подключается через СБП/эквайринг."
+            " Какие из этих каналов и сервисов для вас в приоритете?"
+            if is_ru
+            else (
+                "An interactive quiz or dynamic pricing estimator increases conversions by +35-40%!"
+                " Qualified leads are dispatched instantly to your team Telegram and CRM"
+                " (AmoCRM, Bitrix24), with direct card/Stripe checkout integration."
+                " Which integrations are top priority for your workflow?"
+            )
+        )
+        chips = (
+            [
+                "Квиз-калькулятор + Telegram-оповещения",
+                "Онлайн-оплата (карты / СБП)",
+                "Интеграция с CRM (AmoCRM/Bitrix24)",
+                "Мультиязычность (RU / ENG)",
+            ]
+            if is_ru
+            else [
+                "Quiz Estimator + Instant Telegram",
+                "Stripe / Card Online Checkout",
+                "CRM Webhook Synchronization",
+                "Multilingual Support (EN / RU)",
+            ]
+        )
+        return {
+            "session_id": session_id,
+            "message": reply,
+            "suggestions": chips,
+            "completeness": min(95, max(65, verified_score)),
+            "is_completed": False,
+            "extracted_dimensions": extracted,
+            "brief_summary": None,
+        }
+
+    # Intent 4: Page Structure, Sections, Customer Journey
+    if any(
+        k in msg_low
+        for k in [
+            "структур",
+            "раздел",
+            "блок",
+            "hero",
+            "секц",
+            "лендинг",
+            "сайт",
+            "страниц",
+            "меню",
+            "каталог",
+            "тариф",
+            "отзыв",
+            "section",
+            "page",
+            "catalog",
+        ]
+    ):
+        reply = (
+            "Для конверсионной структуры страницы идеально подходит связка: сильный Hero с УТП"
+            " и оффером -> блок ключевых ценностей и боли клиента -> интерактивный"
+            " блок выбора/квиз -> блок кейсов и социального доверия -> прозрачные тарифы"
+            " -> финальный CTA. Какие блоки для вас ключевые?"
+            if is_ru
+            else (
+                "For high conversion velocity, the optimal page flow is: High-impact Hero with core USP"
+                " -> Value Proposition & pain point resolution -> Interactive Quiz/Configurator"
+                " -> Case studies & Proof Matrix -> Transparent pricing -> Final CTA."
+                " Which sections are essential for your launch?"
+            )
+        )
+        chips = (
+            [
+                "Hero + Кейсы + Тарифы + Заявка",
+                "Интерактивный квиз / конфигуратор",
+                "Демонстрация продукта + FAQ",
+                "Лид-магнит с мгновенным доступом",
+            ]
+            if is_ru
+            else [
+                "Hero + Proof + Pricing + Form",
+                "Interactive Quiz / Configurator",
+                "Product Demo + FAQ Matrix",
+                "Lead Magnet Instant Access",
+            ]
+        )
+        return {
+            "session_id": session_id,
+            "message": reply,
+            "suggestions": chips,
+            "completeness": min(95, max(40, verified_score)),
+            "is_completed": False,
+            "extracted_dimensions": extracted,
+            "brief_summary": None,
+        }
+
+    # If contact is still missing, we gently probe for contact details while summarizing
+    if not has_valid_contact_val:
+        reply = (
+            "Отлично, картина по проекту становится четкой и целостной! Подскажите ваше имя"
+            " и контактные данные (Telegram @username, email или телефон) — чтобы мы могли"
+            " подготовить детальный расчет сметы и архитектурное ТЗ."
+            if is_ru
+            else (
+                "Great, project vision is shaping up clearly! Please provide your name"
+                " and contact handle (Telegram @username, Email, or Phone) so we can"
+                " synthesize the technical specification and project estimate."
+            )
+        )
+        chips = (
+            [
+                "@username (Telegram)",
+                "my.email@domain.com",
+                "+7 (999) 000-00-00",
+                "Хочу обсудить еще детали",
+            ]
+            if is_ru
+            else [
+                "@username (Telegram)",
+                "founder@startup.io",
+                "+1 (555) 019-2834",
+                "Want to discuss more details",
+            ]
+        )
+        return {
+            "session_id": session_id,
+            "message": reply,
+            "suggestions": chips,
+            "completeness": min(90, max(75, verified_score)),
+            "is_completed": False,
+            "extracted_dimensions": extracted,
+            "brief_summary": None,
+        }
+
+    # If all dimensions & contact are available, provide conversational checkpoint:
     reply = (
-        "Отлично, все технические и визуальные требования сформированы! Пожалуйста,"
-        " укажите ваше имя и реальный контакт для связи (Telegram @username, email или телефон),"
-        " чтобы я зафиксировал бриф и передал его архитектору для расчета сметы."
+        "Мы собрали ключевые требования: цели, структуру, дизайн, функционал и контакты."
+        " Вы хотите зафиксировать итоговое ТЗ и получить расчет сметы от инженера, или"
+        " обсудим дополнительные идеи и пожелания?"
         if is_ru
         else (
-            "Excellent, all architectural and design requirements are in place!"
-            " Please provide your name and valid contact handle (Telegram, Email, or Phone)"
-            " so I can record the brief and dispatch it for estimation."
+            "We have gathered all core specifications: goals, architecture, design, features, and contacts."
+            " Would you like to finalize the Technical Specification and get the engineering estimate,"
+            " or explore additional features?"
         )
     )
     chips = (
         [
-            "@username (Telegram)",
-            "my.email@domain.com",
-            "+7 (999) 000-00-00",
+            "📋 Зафиксировать ТЗ и получить смету",
+            "Обсудить еще функционал",
+            "Уточнить стек технологий",
+            "Посмотреть примеры",
         ]
         if is_ru
         else [
-            "@username (Telegram)",
-            "founder@startup.io",
-            "+1 (555) 019-2834",
+            "📋 Finalize ТЗ & Get Estimate",
+            "Discuss more features",
+            "Check engineering tech stack",
+            "View reference examples",
         ]
     )
     return {
         "session_id": session_id,
         "message": reply,
         "suggestions": chips,
-        "completeness": max(85, verified_score),
+        "completeness": min(95, max(85, verified_score)),
         "is_completed": False,
         "extracted_dimensions": extracted,
         "brief_summary": None,
